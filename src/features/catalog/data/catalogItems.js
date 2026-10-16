@@ -1,0 +1,72 @@
+import { ITEM_STATUS } from '../../../constants/status.js';
+
+export const catalogItems = [
+  {
+    id: 'kunci-motor-honda',
+    name: 'Kunci motor Honda',
+    location: 'Parkir B',
+    date: '10 Okt',
+    status: ITEM_STATUS.WAITING_AT_SECURITY,
+    type: 'Temuan',
+    category: 'Umum',
+    icon: 'key',
+    thumbnailTone: 'primary',
+    fullDate: '10 Okt 2026',
+    description: 'Kunci motor Honda ditemukan di area parkir kampus.',
+    claimQuestions: [
+      'Apa ciri khusus pada gantungan kunci?',
+      'Kapan terakhir kali Anda menggunakan kunci ini?',
+    ],
+  },
+  {
+    id: 'dompet-kartu-identitas',
+    name: 'Dompet / kartu identitas',
+    location: 'Kantin',
+    date: '9 Okt',
+    status: ITEM_STATUS.AVAILABLE,
+    type: 'Temuan',
+    category: 'Sensitif',
+    icon: 'wallet',
+    fullDate: '9 Okt 2026',
+    description:
+      'Dompet ditemukan di area kantin. Foto barang disamarkan demi privasi.',
+    claimQuestions: [
+      'Sebutkan isi dompet selain kartu identitas',
+      'Warna / ciri khusus dompet',
+    ],
+  },
+  {
+    id: 'tas-ransel-hitam',
+    name: 'Tas ransel hitam',
+    location: 'Aula',
+    date: '8 Okt',
+    status: ITEM_STATUS.AVAILABLE,
+    type: 'Temuan',
+    category: 'Umum',
+    icon: 'backpack',
+    thumbnailTone: 'violet',
+    fullDate: '8 Okt 2026',
+    description: 'Tas ransel hitam ditemukan di sekitar aula kampus.',
+    claimQuestions: [
+      'Sebutkan isi barang yang ada di dalam tas',
+      'Apa ciri khusus tas yang dapat membuktikan kepemilikan?',
+    ],
+  },
+  {
+    id: 'laptop-abu-abu',
+    name: 'Laptop abu-abu',
+    location: 'Lab 3',
+    date: '7 Okt',
+    status: ITEM_STATUS.CLAIMED,
+    type: 'Temuan',
+    category: 'Umum',
+    icon: 'laptop',
+    thumbnailTone: 'success',
+    fullDate: '7 Okt 2026',
+    description: 'Laptop abu-abu ditemukan di Lab 3.',
+    claimQuestions: [
+      'Apa merek dan ciri khusus laptop tersebut?',
+      'Sebutkan aksesori atau stiker yang menempel pada laptop.',
+    ],
+  },
+];
