@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+.env
+.env.*
+
+# Local specification documents
+/UBakrie-LF_Spesifikasi-Web-Frontend.md
+/spesifikasi_desain_*.md
