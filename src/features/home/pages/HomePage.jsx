@@ -20,7 +20,7 @@ const usageSteps = [
 
 export function HomePage() {
   const { user } = useAuth();
-  const firstName = user?.name?.trim().split(/\s+/)[0] || 'Najwa';
+  const firstName = user?.name?.trim().split(/\s+/)[0] || 'Pengguna';
 
   return (
     <div className="home-page">
@@ -36,14 +36,11 @@ export function HomePage() {
           className="home-quick-actions"
           aria-labelledby="quick-action-title"
         >
-          <h2 id="quick-action-title">Kehilangan atau menemukan barang?</h2>
+          <h2 id="quick-action-title">Menemukan barang di kampus?</h2>
           <div className="home-action-buttons">
-            <Link to={`${paths.reportItem}?type=lost`}>
-              <Button className="home-action-button">Lapor Hilang</Button>
-            </Link>
-            <Link to={`${paths.reportItem}?type=found`}>
+            <Link to={paths.reportItem}>
               <Button className="home-action-button" variant="secondary">
-                Lapor Temuan
+                Laporkan Barang Temuan
               </Button>
             </Link>
           </div>

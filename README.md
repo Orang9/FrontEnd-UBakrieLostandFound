@@ -2,30 +2,26 @@
 
 Aplikasi frontend web untuk layanan barang hilang dan ditemukan di lingkungan Universitas Bakrie. Proyek ini menggunakan React SPA dan disusun per fitur supaya pengembangan setiap epic dapat dilakukan secara terpisah.
 
-> **Status:** prototipe frontend. Beranda, pencarian katalog, pelaporan, klaim, profil, penjadwalan, E-Ticket, dan scanner sudah memiliki UI/interaksi dengan data lokal atau contoh. Integrasi backend belum tersedia. Halaman detail barang, penerimaan barang, review klaim admin, penjadwalan admin, dashboard admin, dan audit trail masih berupa placeholder.
+> **Status:** terintegrasi dengan REST API `BackEnd-TrustFound`. Login/registrasi mahasiswa dan login Admin/Satpam, katalog, pelaporan temuan, klaim, riwayat klaim, penjadwalan, QR E-Ticket, scanner serah-terima, penerimaan barang, review klaim, dashboard, laporan PDF, dan audit trail menggunakan endpoint backend.
 
 ## Fitur
 
 Struktur navigasi dan folder fitur mencakup kebutuhan berikut:
 
-- **Autentikasi** — halaman masuk, session pengguna, dan proteksi rute; backend autentikasi belum terhubung.
+- **Autentikasi** — registrasi dan login mahasiswa menggunakan NIM, login Admin/Satpam menggunakan NIP, penyimpanan session JWT, serta proteksi rute berdasarkan role.
 - **Beranda** — titik masuk pengguna dan navigasi ke katalog atau pelaporan.
-- **Katalog** — pencarian dan filter daftar barang contoh.
-- **Pelaporan barang** — form responsif untuk laporan kehilangan/temuan, kategori umum/sensitif, validasi field, dan upload foto JPG/PNG maksimal 5 MB dengan preview blur untuk item sensitif.
-- **Klaim** — form verifikasi kepemilikan, validasi dua jawaban/bukti opsional, pencegahan klaim aktif ganda, dan status preview `PENDING` pada profil. Review klaim admin masih placeholder.
-- **Penjadwalan** — pengguna dengan klaim `APPROVED` dapat memilih tanggal dan slot, lalu mengubah klaim menjadi `SCHEDULED`.
-- **E-Ticket** — kartu klaim terjadwal di profil membuka QR preview dengan timer 30 menit dan aksi perbarui.
-- **Scanner admin** — pemindaian kamera atau input token manual, validasi tiket preview, dan hasil valid/kedaluwarsa/digunakan/duplikat. Halaman ini prototipe lokal, bukan validasi tiket produksi.
-- **Penerimaan barang** — halaman placeholder untuk pencatatan barang masuk.
-- **Dashboard admin** — halaman placeholder untuk ringkasan dan laporan.
-- **Audit trail** — halaman placeholder untuk riwayat aktivitas admin.
-- **Profil dan riwayat** — tab riwayat klaim/laporan, kartu klaim dengan timeline status, dan badge status.
+- **Katalog** — pencarian/filter item API, detail barang, status, kategori, dan gambar.
+- **Pelaporan barang** — laporan barang temuan dengan kategori dari backend, validasi field, dan upload foto multipart hingga 5 MB.
+- **Klaim** — pengajuan klaim dengan jawaban `challange_answer`, tampilan status dari API, dan review Admin/Satpam.
+- **Penjadwalan** — daftar slot serta kuota berdasarkan tanggal aktual, lalu menyimpan jadwal ke backend.
+- **E-Ticket dan scanner** — QR token backend dengan TTL 24 jam dan validasi serah-terima atomik melalui kamera atau token manual.
+- **Penerimaan barang** — Admin/Satpam dapat mencatat item langsung ke lemari penyimpanan.
+- **Dashboard admin** — metrik realtime, pengamanan barang yang menunggu, unduhan laporan bulanan PDF, dan antrean aktivitas.
+- **Slot Admin** — menampilkan konfigurasi slot yang aktif; perubahan slot belum tersedia karena backend belum memiliki endpoint pengelolaan.
+- **Audit trail** — riwayat aktivitas dari API backend.
+- **Profil dan riwayat** — menampilkan klaim pengguna dari API. Riwayat laporan pribadi belum tersedia karena backend belum menyediakan endpoint terkait.
 
-Fitur yang berkomunikasi dengan backend memisahkan pemanggilan HTTP ke modul `api/` pada folder fiturnya. Kontrak endpoint yang tersedia saat ini adalah titik awal dan harus disesuaikan dengan API backend sebenarnya.
-
-Untuk sementara, halaman laporan, klaim, profil, penjadwalan, dan E-Ticket dapat dibuka tanpa login agar UI dapat diuji sebelum autentikasi tersedia. Pengiriman klaim disimpan hanya di `localStorage` browser sebagai data preview `PENDING`, bukan dikirim ke backend. Riwayat profil menyertakan klaim contoh berstatus `APPROVED` untuk mencoba alur jadwal; kartu klaim `SCHEDULED` dapat dibuka untuk menampilkan QR preview yang berlaku 30 menit dan dapat diperbarui. Slot, ketersediaan, perubahan status `SCHEDULED`, dan QR tiket hanya preview lokal; kuota real-time, persetujuan admin, token terenkripsi, validasi sekali pakai oleh scanner, serta tiket pengambilan sebenarnya belum terhubung ke backend. Pengiriman laporan masih menampilkan pemberitahuan bahwa integrasi backend belum tersedia. Data riwayat profil dan katalog awal merupakan data contoh.
-
-Scanner admin tetap dilindungi session dan role admin. Pemindaian kamera atau input manual, validasi preview, dan perubahan status menjadi `CLAIMED` berjalan di `localStorage` browser yang sama. Token terenkripsi, validasi lintas perangkat, audit IP, dan konfirmasi pengambilan yang sebenarnya memerlukan backend.
+Fitur yang berkomunikasi dengan backend memisahkan pemanggilan HTTP ke modul `api/` pada folder fiturnya. Atur `VITE_API_BASE_URL` ke base path `/api` backend, misalnya `http://localhost:5000/api`. Jika variabel tidak diatur, development secara default mengarah ke `http://localhost:5000/api`. Endpoint pelaporan barang hilang dan riwayat laporan pribadi belum tersedia di kontrak backend; karena itu UI hanya mengirim laporan barang temuan.
 
 ## Tech stack
 
@@ -90,8 +86,8 @@ Pola umum folder fitur adalah `pages/`, `components/`, `api/`, `hooks/`, `schema
 Buka PowerShell, lalu jalankan:
 
 ```powershell
-git clone <URL_REPOSITORY>
-Set-Location <NAMA_FOLDER_REPOSITORY>
+git clone https://github.com/Orang9/FrontEnd-UBakrieLostandFound.git
+Set-Location FrontEnd-UBakrieLostandFound
 npm install
 ```
 
@@ -100,11 +96,21 @@ Ganti `<URL_REPOSITORY>` dengan URL repository GitHub dan `<NAMA_FOLDER_REPOSITO
 Setelah `.env` dibuat, atur variabel berikut sesuai lingkungan backend:
 
 ```dotenv
-VITE_API_BASE_URL=http://localhost:3000/api
+VITE_API_BASE_URL=http://localhost:5000/api
 VITE_APP_NAME=UBakrie Lost & Found
 ```
 
 `VITE_API_BASE_URL` harus diarahkan ke base URL API yang benar. Jangan menyimpan secret, password, atau private key di variabel frontend `VITE_*`, karena nilainya dapat tersedia di browser.
+
+## Menjalankan frontend dan backend dengan Docker Compose
+
+Dari root repository, pastikan Docker aktif dan file `BackEnd-TrustFound/.env` telah diisi dengan konfigurasi backend lokal, lalu jalankan:
+
+```powershell
+docker compose up --build
+```
+
+Buka `http://localhost:8080` untuk frontend. Compose membangun aplikasi frontend ini dengan API URL `http://localhost:5001/api` (port backend yang dipublikasikan di host). Jika backend dijalankan di luar Compose, gunakan `http://localhost:5000/api` untuk development lokal.
 
 ## Menjalankan secara lokal
 

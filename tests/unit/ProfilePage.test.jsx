@@ -1,12 +1,35 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { ProfilePage } from '../../src/features/profile/index.js';
+import { getProfile } from '../../src/features/profile/api/profileApi.js';
+
+vi.mock('../../src/features/profile/api/profileApi.js', () => ({
+  getProfile: vi.fn(),
+}));
 
 afterEach(cleanup);
+beforeEach(() => {
+  getProfile.mockResolvedValue({
+    data: [
+      {
+        claim_id: 147,
+        item_name: 'Dompet kulit',
+        category_name: 'Dompet',
+        status: 'verified',
+      },
+      {
+        claim_id: 148,
+        item_name: 'Kunci motor',
+        category_name: 'Aksesori',
+        status: 'scheduled',
+      },
+    ],
+  });
+});
 
 describe('ProfilePage', () => {
-  it('shows claim history and the claim progress timeline by default', () => {
+  it('loads claim history and links verified and scheduled claims to next steps', async () => {
     render(
       <MemoryRouter>
         <ProfilePage />
@@ -16,18 +39,21 @@ describe('ProfilePage', () => {
     expect(
       screen.getByRole('heading', { name: 'Riwayat Saya' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Riwayat Klaim' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
     expect(
-      screen.getByRole('heading', { name: 'Dompet / kartu identitas' }),
+      await screen.findByRole('heading', { name: 'Dompet kulit' }),
     ).toBeInTheDocument();
-    expect(screen.getByText('Verifikasi manual Admin BEM')).toBeInTheDocument();
-    expect(screen.getByText('Klaim #CL-0147')).toBeInTheDocument();
+    expect(screen.getByText('Klaim #147')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Pilih jadwal pengambilan' }),
+    ).toHaveAttribute('href', '/schedule?claimId=147');
+    expect(
+      screen.getByRole('link', {
+        name: 'Tampilkan E-Ticket untuk Kunci motor, klaim 148',
+      }),
+    ).toHaveAttribute('href', '/tickets/148');
   });
 
-  it('switches to report history', () => {
+  it('explains that report history is unavailable in the backend API', async () => {
     render(
       <MemoryRouter>
         <ProfilePage />
@@ -35,13 +61,8 @@ describe('ProfilePage', () => {
     );
 
     fireEvent.click(screen.getByRole('tab', { name: 'Riwayat Lapor' }));
-
-    expect(screen.getByRole('tab', { name: 'Riwayat Lapor' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
-    expect(screen.getByText('Laporan #RP-0108')).toBeInTheDocument();
-    expect(screen.getByText('Temuan')).toBeInTheDocument();
-    expect(screen.queryByText('Klaim #CL-0147')).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/backend belum menyediakan endpoint/),
+    ).toBeInTheDocument();
   });
 });

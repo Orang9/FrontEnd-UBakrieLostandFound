@@ -1,75 +1,130 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { claimHistory } from '../../profile/index.js';
-import {
-  getStoredClaims,
-  upsertPreviewClaim,
-} from '../../../lib/claimStorage.js';
+import { getMyClaims } from '../../claim/api/claimApi.js';
+import { getSlots, createSchedule } from '../api/schedulingApi.js';
 import { paths } from '../../../app/router/paths.js';
 
-const dates = [
-  { id: '12', weekday: 'Sen', heading: 'Senin, 12 Okt' },
-  { id: '13', weekday: 'Sel', heading: 'Selasa, 13 Okt' },
-  { id: '14', weekday: 'Rab', heading: 'Rabu, 14 Okt' },
-  { id: '15', weekday: 'Kam', heading: 'Kamis, 15 Okt' },
-  { id: '16', weekday: 'Jum', heading: 'Jumat, 16 Okt' },
-];
+function dateString(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
-const slots = [
-  { id: '09-10', label: '09.00 - 10.00', available: true },
-  { id: '10-11', label: '10.00 - 11.00', available: false },
-  { id: '11-12', label: '11.00 - 12.00', available: true },
-  { id: '13-14', label: '13.00 - 14.00', available: true },
-  { id: '14-15', label: '14.00 - 15.00', available: true },
-];
+function nextWeekdays(count = 15) {
+  const dates = [];
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  while (dates.length < count) {
+    if (date.getDay() > 0 && date.getDay() < 6) {
+      dates.push(dateString(date));
+    }
+    date.setDate(date.getDate() + 1);
+  }
+  return dates;
+}
 
-function findClaim(claimId) {
-  const storedClaim = getStoredClaims().find((claim) => claim.id === claimId);
-  return storedClaim ?? claimHistory.find((claim) => claim.id === claimId);
+function formatDate(value) {
+  return new Intl.DateTimeFormat('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }).format(new Date(`${value}T12:00:00`));
 }
 
 export function SchedulingPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const claimId = searchParams.get('claimId');
-  const claim = claimId ? findClaim(claimId) : null;
-  const [selectedDate, setSelectedDate] = useState('14');
-  const [selectedSlot, setSelectedSlot] = useState('11-12');
-  const selectedDateInfo = dates.find((date) => date.id === selectedDate);
-  const canSchedule = claim?.status === 'APPROVED';
+  const dates = useMemo(() => nextWeekdays(), []);
+  const [date, setDate] = useState(dates[0]);
+  const [claim, setClaim] = useState(null);
+  const [slots, setSlots] = useState([]);
+  const [selectedSlot, setSelectedSlot] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  function confirmSchedule(event) {
+  useEffect(() => {
+    let isCurrent = true;
+    getMyClaims()
+      .then((response) => {
+        const found = (response.data ?? []).find(
+          (row) => String(row.claim_id) === String(claimId),
+        );
+        if (isCurrent) setClaim(found ?? null);
+      })
+      .catch((requestError) => {
+        if (isCurrent) {
+          setError(
+            requestError.response?.data?.message ||
+              'Klaim gagal dimuat. Coba kembali.',
+          );
+        }
+      })
+      .finally(() => {
+        if (isCurrent) setLoading(false);
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, [claimId]);
+
+  useEffect(() => {
+    let isCurrent = true;
+    setSelectedSlot('');
+    setError('');
+    getSlots({ date })
+      .then((response) => {
+        if (isCurrent) setSlots(response.data?.slots ?? []);
+      })
+      .catch((requestError) => {
+        if (isCurrent) {
+          setError(
+            requestError.response?.data?.message ||
+              'Ketersediaan slot gagal dimuat.',
+          );
+        }
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, [date]);
+
+  const canSchedule = claim && ['verified', 'scheduled'].includes(claim.status);
+
+  async function confirmSchedule(event) {
     event.preventDefault();
-    const slot = slots.find((option) => option.id === selectedSlot);
-    if (!canSchedule || !slot?.available || !selectedDateInfo) return;
-
-    const scheduledTime = `${selectedDateInfo.heading}, 2026 • ${slot.label}`;
-    upsertPreviewClaim({
-      ...claim,
-      status: 'SCHEDULED',
-      schedule: {
-        date: `${selectedDateInfo.heading}, 2026`,
-        time: slot.label,
-        ticketId: `ET-${claim.id}`,
-      },
-      steps: claim.steps?.map((step) =>
-        step.key === 'SCHEDULED'
-          ? { ...step, time: scheduledTime, complete: true }
-          : step,
-      ),
-    });
-    navigate(
-      `${paths.profile}?tab=claims&claimId=${encodeURIComponent(claim.id)}&scheduled=1`,
-    );
+    if (!canSchedule || !selectedSlot) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      await createSchedule({
+        claimId,
+        slot_id: Number(selectedSlot),
+        scheduled_date: date,
+      });
+      navigate(`${paths.profile}?tab=claims`);
+    } catch (requestError) {
+      setError(
+        requestError.response?.data?.message || 'Jadwal gagal disimpan.',
+      );
+    } finally {
+      setSubmitting(false);
+    }
   }
+
+  const availableSlots = slots.filter(
+    (slot) => slot.is_available && slot.available_quota > 0,
+  );
 
   return (
     <main className="scheduling-page">
       <header className="scheduling-header">
         <Link
           className="scheduling-back"
-          to={paths.profile}
+          to={`${paths.profile}?tab=claims`}
           aria-label="Kembali ke profil"
         >
           <ArrowLeft size={22} aria-hidden="true" />
@@ -77,93 +132,91 @@ export function SchedulingPage() {
         <h1>Pilih Slot Pengambilan</h1>
       </header>
 
-      {!canSchedule ? (
+      {loading ? (
+        <p role="status">Memuat klaim...</p>
+      ) : !canSchedule ? (
         <section className="scheduling-unavailable" role="status">
           <p>
-            {claim
-              ? 'Jadwal hanya dapat dipilih setelah klaim disetujui.'
-              : 'Klaim yang disetujui tidak ditemukan. Buka profil untuk memilih klaim yang tersedia.'}
+            {error ||
+              (claim
+                ? 'Jadwal hanya dapat dipilih setelah klaim diverifikasi.'
+                : 'Klaim terverifikasi tidak ditemukan.')}
           </p>
           <Link to={`${paths.profile}?tab=claims`}>Kembali ke profil</Link>
         </section>
       ) : (
         <form className="scheduling-content" onSubmit={confirmSchedule}>
           <div className="scheduling-approval" role="status">
-            Klaim disetujui. Pilih jadwal pengambilan.
+            Klaim {claim.item_name} telah diverifikasi. Pilih jadwal
+            pengambilan.
           </div>
+          {error && <p role="alert">{error}</p>}
 
           <section className="scheduling-section" aria-labelledby="date-title">
-            <h2 id="date-title">Oktober 2026</h2>
-            <div
-              className="scheduling-date-list"
-              role="radiogroup"
+            <h2 id="date-title">Tanggal pengambilan</h2>
+            <select
               aria-label="Pilih tanggal"
+              value={date}
+              onChange={(event) => setDate(event.target.value)}
             >
-              {dates.map((date) => (
-                <label
-                  className={`scheduling-date${selectedDate === date.id ? ' is-selected' : ''}`}
-                  key={date.id}
-                >
-                  <input
-                    type="radio"
-                    name="schedule-date"
-                    value={date.id}
-                    checked={selectedDate === date.id}
-                    onChange={() => setSelectedDate(date.id)}
-                  />
-                  <span>{date.weekday}</span>
-                  <strong>{date.id}</strong>
-                </label>
+              {dates.map((option) => (
+                <option key={option} value={option}>
+                  {formatDate(option)}
+                </option>
               ))}
-            </div>
+            </select>
           </section>
 
           <section className="scheduling-section" aria-labelledby="slot-title">
-            <h2 id="slot-title">Slot tersedia - {selectedDateInfo.heading}</h2>
-            <div
-              className="scheduling-slot-list"
-              role="radiogroup"
-              aria-label="Pilih slot waktu"
-            >
-              {slots.map((slot) => (
-                <label
-                  className={`scheduling-slot${selectedSlot === slot.id ? ' is-selected' : ''}${slot.available ? '' : ' is-full'}`}
-                  key={slot.id}
-                >
-                  <input
-                    type="radio"
-                    name="schedule-slot"
-                    value={slot.id}
-                    checked={selectedSlot === slot.id}
-                    disabled={!slot.available}
-                    onChange={() => setSelectedSlot(slot.id)}
-                  />
-                  <span className="scheduling-radio" aria-hidden="true" />
-                  <strong>{slot.label}</strong>
-                  {!slot.available && (
-                    <span className="scheduling-full-badge">Penuh</span>
-                  )}
-                </label>
-              ))}
-            </div>
+            <h2 id="slot-title">Slot tersedia - {formatDate(date)}</h2>
+            {slots.length === 0 ? (
+              <p role="status">Tidak ada slot untuk tanggal ini.</p>
+            ) : (
+              <div
+                className="scheduling-slot-list"
+                role="radiogroup"
+                aria-label="Pilih slot waktu"
+              >
+                {slots.map((slot) => {
+                  const available =
+                    slot.is_available && slot.available_quota > 0;
+                  return (
+                    <label
+                      className={`scheduling-slot${selectedSlot === String(slot.slot_id) ? ' is-selected' : ''}${available ? '' : ' is-full'}`}
+                      key={slot.slot_id}
+                    >
+                      <input
+                        type="radio"
+                        name="schedule-slot"
+                        value={slot.slot_id}
+                        checked={selectedSlot === String(slot.slot_id)}
+                        disabled={!available}
+                        onChange={() => setSelectedSlot(String(slot.slot_id))}
+                      />
+                      <span className="scheduling-radio" aria-hidden="true" />
+                      <strong>
+                        {slot.start_time.slice(0, 5)} -{' '}
+                        {slot.end_time.slice(0, 5)}
+                      </strong>
+                      {!available && (
+                        <span className="scheduling-full-badge">Penuh</span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+            )}
           </section>
 
           <button
             className="scheduling-confirm"
             type="submit"
-            disabled={
-              !slots.find((slot) => slot.id === selectedSlot)?.available
-            }
+            disabled={submitting || !availableSlots.length || !selectedSlot}
           >
-            Konfirmasi Jadwal
+            {submitting ? 'Menyimpan...' : 'Konfirmasi Jadwal'}
           </button>
           <p className="scheduling-footnote">
-            Status klaim otomatis menjadi TERJADWAL. Kendala? Hubungi Admin BEM
-            via WhatsApp (opsional).
-          </p>
-          <p className="scheduling-preview-note">
-            Jadwal ini disimpan sebagai preview lokal; kuota dan tiket QR belum
-            terhubung ke backend.
+            Jadwal tersimpan di backend dan status klaim akan menjadi terjadwal.
           </p>
         </form>
       )}

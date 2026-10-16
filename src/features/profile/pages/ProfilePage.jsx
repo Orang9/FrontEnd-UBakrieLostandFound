@@ -1,9 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { HistoryItemCard } from '../components/HistoryItemCard.jsx';
-import { ClaimTimeline } from '../components/ClaimTimeline.jsx';
-import { claimHistory, reportHistory } from '../data/profileHistory.js';
-import { getStoredClaims } from '../../../lib/claimStorage.js';
+import { getProfile } from '../api/profileApi.js';
 import { paths } from '../../../app/router/paths.js';
 
 const tabs = [
@@ -11,22 +9,45 @@ const tabs = [
   { id: 'reports', label: 'Riwayat Lapor' },
 ];
 
+const claimStatus = {
+  pending: 'PENDING',
+  verified: 'APPROVED',
+  scheduled: 'SCHEDULED',
+  rejected: 'REJECTED',
+  claimed: 'CLAIMED',
+};
+
 export function ProfilePage() {
   const [searchParams] = useSearchParams();
   const requestedTab = searchParams.get('tab');
-  const claimId = searchParams.get('claimId');
-  const scheduled = searchParams.get('scheduled') === '1';
   const [activeTab, setActiveTab] = useState(
     requestedTab === 'reports' ? 'reports' : 'claims',
   );
-  const [previewClaims] = useState(getStoredClaims);
-  const previewClaimIds = new Set(previewClaims.map((claim) => claim.id));
-  const claims = [
-    ...previewClaims,
-    ...claimHistory.filter((claim) => !previewClaimIds.has(claim.id)),
-  ];
-  const submittedClaim = previewClaims.find((claim) => claim.id === claimId);
-  const updatedClaim = claims.find((claim) => claim.id === claimId);
+  const [claims, setClaims] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let isCurrent = true;
+    getProfile()
+      .then((response) => {
+        if (isCurrent) setClaims(response.data ?? []);
+      })
+      .catch((requestError) => {
+        if (isCurrent) {
+          setError(
+            requestError.response?.data?.message ||
+              'Riwayat klaim gagal dimuat.',
+          );
+        }
+      })
+      .finally(() => {
+        if (isCurrent) setLoading(false);
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
 
   return (
     <div className="profile-page">
@@ -37,18 +58,6 @@ export function ProfilePage() {
       </header>
 
       <div className="profile-content">
-        {submittedClaim?.status === 'PENDING' && (
-          <aside className="profile-pending-banner" role="status">
-            Klaim #{submittedClaim.id} berhasil disimpan untuk preview dan
-            berstatus PENDING. Tunggu persetujuan Admin BEM sebelum melanjutkan.
-          </aside>
-        )}
-        {scheduled && updatedClaim?.status === 'SCHEDULED' && (
-          <aside className="profile-pending-banner" role="status">
-            Jadwal pengambilan klaim #{updatedClaim.id} telah dikonfirmasi untuk
-            preview.
-          </aside>
-        )}
         <div
           className="profile-tabs"
           role="tablist"
@@ -77,29 +86,44 @@ export function ProfilePage() {
             role="tabpanel"
             aria-labelledby="profile-claims-tab"
           >
-            {claims.map((claim) => (
-              <HistoryItemCard
-                key={claim.id}
-                item={claim.item}
-                id={claim.id}
-                status={claim.status}
-                to={
-                  claim.status === 'SCHEDULED' && claim.schedule?.ticketId
-                    ? paths.eticket(claim.schedule.ticketId)
-                    : undefined
-                }
-              >
-                {claim.detailed && <ClaimTimeline steps={claim.steps} />}
-                {claim.status === 'APPROVED' && (
-                  <Link
-                    className="profile-schedule-link"
-                    to={`${paths.scheduling}?claimId=${encodeURIComponent(claim.id)}`}
+            {loading ? (
+              <p role="status">Memuat riwayat klaim...</p>
+            ) : error ? (
+              <p role="alert">{error}</p>
+            ) : claims.length ? (
+              claims.map((claim) => {
+                const status = claimStatus[claim.status] ?? claim.status;
+                const item = {
+                  name: claim.item_name,
+                  category: claim.category_name,
+                  icon: 'wallet',
+                };
+                return (
+                  <HistoryItemCard
+                    key={claim.claim_id}
+                    item={item}
+                    id={claim.claim_id}
+                    status={status}
+                    to={
+                      claim.status === 'scheduled'
+                        ? paths.eticket(claim.claim_id)
+                        : undefined
+                    }
                   >
-                    Pilih jadwal pengambilan
-                  </Link>
-                )}
-              </HistoryItemCard>
-            ))}
+                    {claim.status === 'verified' && (
+                      <Link
+                        className="profile-schedule-link"
+                        to={`${paths.scheduling}?claimId=${encodeURIComponent(claim.claim_id)}`}
+                      >
+                        Pilih jadwal pengambilan
+                      </Link>
+                    )}
+                  </HistoryItemCard>
+                );
+              })
+            ) : (
+              <p>Belum ada klaim yang diajukan.</p>
+            )}
           </section>
         ) : (
           <section
@@ -108,17 +132,10 @@ export function ProfilePage() {
             role="tabpanel"
             aria-labelledby="profile-reports-tab"
           >
-            {reportHistory.map((report) => (
-              <HistoryItemCard
-                key={report.id}
-                item={report.item}
-                id={report.id}
-                idLabel="Laporan"
-                status={report.status}
-                type={report.type}
-                date={report.date}
-              />
-            ))}
+            <p>
+              Riwayat laporan barang belum tersedia: backend belum menyediakan
+              endpoint untuk mengambil laporan milik pengguna.
+            </p>
           </section>
         )}
       </div>

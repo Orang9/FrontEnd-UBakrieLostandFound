@@ -1,6 +1,7 @@
 export const paths = {
   home: '/',
   login: '/login',
+  register: '/register',
   catalog: '/catalog',
   catalogItem: (itemId = ':itemId') => `/catalog/${itemId}`,
   reportItem: '/report',

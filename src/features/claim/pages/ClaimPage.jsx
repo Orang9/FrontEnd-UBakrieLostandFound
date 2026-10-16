@@ -1,189 +1,111 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import {
-  ArrowLeft,
-  Backpack,
-  KeyRound,
-  Laptop,
-  LockKeyhole,
-  Upload,
-  Wallet,
-} from 'lucide-react';
+import { ArrowLeft, LockKeyhole } from 'lucide-react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../../app/providers/ToastProvider.jsx';
 import { Button } from '../../../components/ui/Button.jsx';
 import { StatusBadge } from '../../../components/domain/StatusBadge.jsx';
-import { ITEM_STATUS } from '../../../constants/status.js';
-import { SYSTEM_MESSAGES } from '../../../constants/messages.js';
-import {
-  ACCEPTED_PHOTO_TYPES,
-  MAX_PHOTO_SIZE_MB,
-} from '../../../constants/limits.js';
+import { getCatalogItem } from '../../catalog/api/catalogApi.js';
+import { createClaim, getMyClaims } from '../api/claimApi.js';
 import { paths } from '../../../app/router/paths.js';
-import { catalogItems } from '../../catalog/data/catalogItems.js';
-import {
-  hasActiveClaimForItem,
-  savePreviewClaim,
-} from '../../../lib/claimStorage.js';
-import {
-  validateClaimAnswers,
-  validateClaimEvidence,
-} from '../schemas/claimValidation.js';
-
-function ItemSummary({ item }) {
-  const ItemIcon =
-    item.category === 'Sensitif'
-      ? LockKeyhole
-      : ({ key: KeyRound, wallet: Wallet, backpack: Backpack, laptop: Laptop }[
-          item.icon
-        ] ?? LockKeyhole);
-
-  return (
-    <section className="claim-item-summary" aria-label="Ringkasan barang">
-      <div
-        className={`claim-item-thumbnail${item.category === 'Sensitif' ? ' is-sensitive' : ` tone-${item.thumbnailTone ?? 'primary'}`}`}
-        aria-hidden="true"
-      >
-        <ItemIcon size={28} aria-hidden="true" />
-      </div>
-      <div className="claim-item-copy">
-        <h2>{item.name}</h2>
-        <span className="claim-category-badge">
-          {item.category.toUpperCase()}
-        </span>
-        <p>
-          {item.location}, {item.fullDate ?? item.date}
-        </p>
-        <StatusBadge status={item.status} />
-      </div>
-      {item.category === 'Sensitif' && (
-        <span className="claim-item-lock" aria-label="Foto barang disamarkan">
-          <LockKeyhole size={17} />
-        </span>
-      )}
-    </section>
-  );
-}
 
 export function ClaimPage() {
   const { itemId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { notify } = useToast();
-  const item = catalogItems.find((catalogItem) => catalogItem.id === itemId);
-  const [duplicateClaim, setDuplicateClaim] = useState(() =>
-    item ? hasActiveClaimForItem(item.id) : false,
-  );
+  const [item, setItem] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [duplicateClaim, setDuplicateClaim] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm({ defaultValues: { answers: ['', ''] } });
+  } = useForm();
 
-  if (!item) {
+  useEffect(() => {
+    let isCurrent = true;
+    Promise.all([getCatalogItem(itemId), getMyClaims()])
+      .then(([itemResponse, claimsResponse]) => {
+        if (!isCurrent) return;
+        setItem(itemResponse.data);
+        setDuplicateClaim(
+          (claimsResponse.data ?? []).some(
+            (claim) =>
+              String(claim.item_id) === String(itemId) &&
+              ['pending', 'verified', 'scheduled'].includes(claim.status),
+          ),
+        );
+      })
+      .catch((error) => {
+        if (isCurrent) {
+          setLoadError(
+            error.response?.data?.message ||
+              'Informasi barang atau klaim gagal dimuat.',
+          );
+        }
+      })
+      .finally(() => {
+        if (isCurrent) setLoading(false);
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, [itemId]);
+
+  if (loading) return <p role="status">Memuat informasi barang...</p>;
+  if (loadError || !item) {
     return (
-      <div className="claim-page">
-        <header className="claim-hero">
-          <div className="claim-hero-content">
-            <button
-              className="claim-back-button"
-              type="button"
-              onClick={() => navigate(paths.catalog)}
-              aria-label="Kembali ke katalog"
-            >
-              <ArrowLeft size={22} aria-hidden="true" />
-            </button>
-            <h1>Ajukan Klaim</h1>
-          </div>
-        </header>
+      <section className="claim-page">
         <div className="claim-content">
-          <section className="claim-empty-state">
-            <h2>Barang tidak ditemukan</h2>
-            <p>Barang ini tidak tersedia di katalog saat ini.</p>
-            <Button type="button" onClick={() => navigate(paths.catalog)}>
-              Kembali ke katalog
-            </Button>
-          </section>
+          <h1>Ajukan Klaim</h1>
+          <p role="alert">{loadError || 'Barang tidak ditemukan.'}</p>
+          <Button type="button" onClick={() => navigate(paths.catalog)}>
+            Kembali ke katalog
+          </Button>
         </div>
-      </div>
+      </section>
     );
   }
 
-  const cannotClaim = item.status === ITEM_STATUS.CLAIMED;
-  const questions = item.claimQuestions ?? [
-    'Sebutkan ciri khusus barang yang ingin Anda klaim.',
-    'Kapan dan di mana barang tersebut hilang?',
-  ];
+  const isSensitive = Boolean(item.is_sensitive);
+  const cannotClaim = ['claimed', 'donated'].includes(item.status);
+  const status =
+    item.status === 'secured'
+      ? 'AVAILABLE'
+      : item.status === 'pending'
+        ? 'WAITING_AT_SECURITY'
+        : item.status.toUpperCase();
 
-  function onSubmit(values) {
-    const answers = [values.answers[0], values.answers[1]];
-    if (validateClaimAnswers(answers) !== true) return;
-
+  async function onSubmit(values) {
+    if (duplicateClaim) return;
+    const answers = [values.answer1?.trim(), values.answer2?.trim()].filter(
+      Boolean,
+    );
+    setSubmitting(true);
     try {
-      if (hasActiveClaimForItem(item.id)) {
-        setDuplicateClaim(true);
-        return;
+      const payload = { item_id: Number(item.item_id) };
+      if (answers.length > 0) {
+        payload.challange_answer = answers
+          .map((answer, index) => `${index + 1}. ${answer}`)
+          .join('\n');
       }
-
-      const id = `CL-${String(Date.now()).slice(-6)}`;
-      const submittedAt = new Date();
-      const submittedTime = new Intl.DateTimeFormat('id-ID', {
-        day: '2-digit',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-      }).format(submittedAt);
-
-      savePreviewClaim({
-        id,
-        item: {
-          id: item.id,
-          name: item.name,
-          icon: item.icon,
-          category: item.category,
-        },
-        status: 'PENDING',
-        detailed: true,
-        previewOnly: true,
-        submittedAt: submittedAt.toISOString(),
-        steps: [
-          {
-            key: 'SUBMITTED',
-            label: 'Klaim dikirim',
-            time: submittedTime,
-            complete: true,
-          },
-          {
-            key: 'PENDING',
-            label: 'Menunggu persetujuan Admin BEM (PENDING)',
-            time: 'Menunggu persetujuan',
-            complete: false,
-          },
-          {
-            key: 'APPROVED',
-            label: 'Disetujui (APPROVED)',
-            time: '-',
-            complete: false,
-          },
-          {
-            key: 'SCHEDULED',
-            label: 'Jadwal dipilih (TERJADWAL)',
-            time: '-',
-            complete: false,
-          },
-          {
-            key: 'CLAIMED',
-            label: 'Diambil (CLAIMED)',
-            time: '-',
-            complete: false,
-          },
-        ],
-      });
-
-      navigate(`${paths.profile}?tab=claims&claimId=${encodeURIComponent(id)}`);
+      const response = await createClaim(payload);
+      const claimId = response.data?.claim_id;
+      notify(response.message || 'Klaim berhasil dikirim.', 'success');
+      navigate(
+        `${paths.profile}?tab=claims${claimId ? `&claimId=${encodeURIComponent(claimId)}` : ''}`,
+      );
     } catch (error) {
-      console.error('Could not save preview claim.', error);
-      notify(SYSTEM_MESSAGES.genericError, 'error');
+      const message = error.response?.data?.message || 'Klaim gagal dikirim.';
+      if (error.response?.status === 400 && /already claimed/i.test(message)) {
+        setDuplicateClaim(true);
+      }
+      notify(message, 'error');
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -206,88 +128,78 @@ export function ClaimPage() {
       </header>
 
       <div className="claim-content">
-        <ItemSummary item={item} />
+        <section className="claim-item-summary" aria-label="Ringkasan barang">
+          <div
+            className={`claim-item-thumbnail${isSensitive ? ' is-sensitive' : ''}`}
+            aria-hidden="true"
+          >
+            {isSensitive && <LockKeyhole size={28} />}
+          </div>
+          <div className="claim-item-copy">
+            <h2>{item.name}</h2>
+            <span className="claim-category-badge">{item.category_name}</span>
+            <p>
+              {item.found_location}, {item.found_date}
+            </p>
+            <StatusBadge status={status} />
+          </div>
+          {isSensitive && (
+            <span
+              className="claim-item-lock"
+              aria-label="Foto barang disamarkan"
+            >
+              <LockKeyhole size={17} />
+            </span>
+          )}
+        </section>
 
         <section className="claim-verification">
           <h2>Verifikasi Kepemilikan</h2>
           <p className="claim-description">
-            Jawab 2 pertanyaan kunci. Admin BEM akan meninjau secara manual
-            sebelum klaim disetujui.
+            {isSensitive
+              ? 'Jelaskan ciri khusus barang. Jawaban wajib untuk barang sensitif.'
+              : 'Berikan informasi yang membantu Admin memverifikasi kepemilikan barang.'}
           </p>
           <form
             className="claim-form"
             noValidate
             onSubmit={handleSubmit(onSubmit)}
           >
-            {questions.slice(0, 2).map((question, index) => (
-              <label
-                className="claim-field"
-                htmlFor={`claim-answer-${index}`}
-                key={question}
-              >
-                <span>
-                  {index + 1}. {question}
-                </span>
-                <input
-                  id={`claim-answer-${index}`}
-                  type="text"
-                  placeholder={
-                    index === 0
-                      ? 'Tulis jawaban Anda'
-                      : 'Jelaskan ciri-ciri barang'
-                  }
-                  aria-invalid={Boolean(errors.answers?.[index])}
-                  {...register(`answers.${index}`, {
-                    required: 'Jawaban verifikasi wajib diisi.',
-                  })}
-                />
-                {errors.answers?.[index] && (
-                  <span className="claim-error">
-                    {errors.answers[index].message}
-                  </span>
-                )}
-              </label>
-            ))}
-
-            <label className="claim-field" htmlFor="claim-evidence">
-              <span>
-                Bukti kepemilikan (opsional, maks {MAX_PHOTO_SIZE_MB} MB)
-              </span>
-              <span className="claim-upload">
-                <Upload size={20} aria-hidden="true" />
-                <span>+ Unggah foto KTM / nota pembelian JPG / PNG</span>
-                <input
-                  id="claim-evidence"
-                  type="file"
-                  accept={ACCEPTED_PHOTO_TYPES.join(',')}
-                  {...register('evidence', { validate: validateClaimEvidence })}
-                />
-              </span>
-              {errors.evidence && (
-                <span className="claim-error">{errors.evidence.message}</span>
+            <label className="claim-field" htmlFor="claim-answer-1">
+              <span>Jelaskan ciri khusus barang yang ingin Anda klaim.</span>
+              <textarea
+                id="claim-answer-1"
+                rows={4}
+                aria-invalid={Boolean(errors.answer1)}
+                {...register('answer1', {
+                  required: isSensitive
+                    ? 'Jawaban wajib diisi untuk barang sensitif.'
+                    : false,
+                })}
+              />
+              {errors.answer1 && (
+                <span className="claim-error">{errors.answer1.message}</span>
               )}
             </label>
 
-            {duplicateClaim ? (
-              <div className="claim-duplicate-notice" role="status">
-                Anda sudah memiliki klaim aktif untuk barang ini. Sistem menolak
-                klaim ganda.
-              </div>
-            ) : (
+            {!cannotClaim && !duplicateClaim ? (
               <div className="claim-submit-area">
                 <p className="claim-pending-notice">
-                  Status setelah dikirim: PENDING
+                  Status setelah dikirim: Menunggu persetujuan
                 </p>
                 <Button
                   className="claim-submit-button"
                   type="submit"
-                  disabled={cannotClaim}
+                  disabled={submitting}
                 >
-                  {cannotClaim ? 'Barang sudah diklaim' : 'Kirim Klaim'}
+                  {submitting ? 'Mengirim...' : 'Kirim Klaim'}
                 </Button>
-                <p className="claim-footnote">
-                  Anda sudah punya klaim aktif? Sistem menolak klaim ganda.
-                </p>
+              </div>
+            ) : (
+              <div className="claim-duplicate-notice" role="status">
+                {cannotClaim
+                  ? 'Barang ini sudah tidak tersedia untuk diklaim.'
+                  : 'Anda sudah memiliki klaim aktif untuk barang ini.'}
               </div>
             )}
           </form>

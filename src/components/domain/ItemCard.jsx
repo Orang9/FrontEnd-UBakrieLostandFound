@@ -1,6 +1,7 @@
 import { Backpack, KeyRound, Laptop, LockKeyhole, Wallet } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { paths } from '../../app/router/paths.js';
+import { getItemImageUrl } from '../../lib/media.js';
 import { StatusBadge } from './StatusBadge.jsx';
 
 const itemIcons = {
@@ -12,7 +13,10 @@ const itemIcons = {
 
 export function ItemCard({ item }) {
   const Icon =
-    item.category === 'Sensitif' ? LockKeyhole : itemIcons[item.icon];
+    item.category === 'Sensitif'
+      ? LockKeyhole
+      : (itemIcons[item.icon] ?? Backpack);
+  const imageUrl = getItemImageUrl(item.image_path);
 
   return (
     <article className="catalog-item-card">
@@ -25,7 +29,11 @@ export function ItemCard({ item }) {
           className={`catalog-item-thumbnail${item.thumbnailTone ? ` tone-${item.thumbnailTone}` : ''}${item.category === 'Sensitif' ? ' is-sensitive' : ''}`}
           aria-hidden="true"
         >
-          <Icon size={30} strokeWidth={1.8} />
+          {imageUrl ? (
+            <img src={imageUrl} alt="" />
+          ) : (
+            <Icon size={30} strokeWidth={1.8} />
+          )}
         </div>
         <div className="catalog-item-content">
           <h2>{item.name}</h2>

@@ -2,9 +2,11 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../providers/AuthProvider.jsx';
 import { paths } from './paths.js';
 
-export function RoleRoute({ role = 'ADMIN_BEM' }) {
+const ADMIN_ROLES = ['satpam', 'admin', 'super_admin', 'ADMIN_BEM'];
+
+export function RoleRoute({ roles = ADMIN_ROLES }) {
   const { user } = useAuth();
-  return user?.role === role ? (
+  return roles.includes(user?.role) ? (
     <Outlet />
   ) : (
     <Navigate to={paths.home} replace />

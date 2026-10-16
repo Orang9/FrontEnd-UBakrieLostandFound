@@ -5,6 +5,11 @@ export async function getCatalog(params) {
   return data;
 }
 
+export async function getCategories() {
+  const { data } = await apiClient.get('/categories');
+  return data;
+}
+
 export async function getCatalogItem(itemId) {
   const { data } = await apiClient.get(`/items/${encodeURIComponent(itemId)}`);
   return data;

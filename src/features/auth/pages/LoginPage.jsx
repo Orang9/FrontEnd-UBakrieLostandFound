@@ -1,18 +1,19 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { Button } from '../../../components/ui/Button.jsx';
 import { useToast } from '../../../app/providers/ToastProvider.jsx';
+import { useAuth } from '../../../app/providers/AuthProvider.jsx';
 import { SYSTEM_MESSAGES } from '../../../constants/messages.js';
 import { paths } from '../../../app/router/paths.js';
-
-const CAMPUS_EMAIL_DOMAINS = ['student.bakrie.ac.id', 'bakrie.ac.id'];
-
-function isCampusEmail(value) {
-  const domain = value.trim().toLowerCase().split('@').at(-1);
-  return CAMPUS_EMAIL_DOMAINS.includes(domain);
-}
+import { loginAdmin, loginStudent } from '../api/authApi.js';
 
 export function LoginPage() {
+  const [accountType, setAccountType] = useState('student');
+  const [submitting, setSubmitting] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
   const {
     register,
     handleSubmit,
@@ -20,38 +21,99 @@ export function LoginPage() {
   } = useForm();
   const { notify } = useToast();
 
-  function onSubmit() {
-    notify(SYSTEM_MESSAGES.authUnavailable, 'info');
+  async function onSubmit(values) {
+    setSubmitting(true);
+    try {
+      const response =
+        accountType === 'student'
+          ? await loginStudent({
+              nim: values.identifier.trim(),
+              password: values.password,
+            })
+          : await loginAdmin({
+              nip: values.identifier.trim(),
+              password: values.password,
+            });
+      const account = response.data;
+      const user = {
+        ...account,
+        role: account.role,
+        identifier: account.nim ?? account.nip,
+      };
+      login({ user, token: account.token });
+      const returnTo = location.state?.from?.pathname;
+      const isAdmin = account.role !== 'user';
+      const target =
+        returnTo && returnTo.startsWith('/admin') === isAdmin
+          ? returnTo
+          : isAdmin
+            ? paths.admin.dashboard
+            : paths.home;
+      navigate(target, { replace: true });
+    } catch (error) {
+      notify(
+        error.response?.data?.message || SYSTEM_MESSAGES.networkError,
+        'error',
+      );
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
     <section className="auth-content">
       <h1>Masuk</h1>
-      <p className="auth-subtitle">Gunakan akun email kampus</p>
+      <p className="auth-subtitle">Masuk menggunakan akun terdaftar</p>
+      <div className="report-segmented" role="group" aria-label="Jenis akun">
+        <button
+          className={`report-segment${accountType === 'student' ? ' is-active' : ''}`}
+          type="button"
+          aria-pressed={accountType === 'student'}
+          onClick={() => setAccountType('student')}
+        >
+          Mahasiswa
+        </button>
+        <button
+          className={`report-segment${accountType === 'admin' ? ' is-active' : ''}`}
+          type="button"
+          aria-pressed={accountType === 'admin'}
+          onClick={() => setAccountType('admin')}
+        >
+          Admin / Satpam
+        </button>
+      </div>
       <form className="auth-form" noValidate onSubmit={handleSubmit(onSubmit)}>
-        <label className="auth-field" htmlFor="email">
-          <span>Email Kampus</span>
+        <label className="auth-field" htmlFor="identifier">
+          <span>{accountType === 'student' ? 'NIM' : 'NIP'}</span>
           <input
-            id="email"
-            type="email"
-            autoComplete="email"
-            placeholder="nama@student.bakrie.ac.id"
-            aria-invalid={Boolean(errors.email)}
-            aria-describedby={errors.email ? 'email-error' : undefined}
-            {...register('email', {
-              required: 'Email kampus wajib diisi.',
+            id="identifier"
+            type="text"
+            inputMode="numeric"
+            autoComplete="username"
+            placeholder={
+              accountType === 'student'
+                ? 'Nomor Induk Mahasiswa'
+                : 'Nomor Induk Pegawai'
+            }
+            aria-invalid={Boolean(errors.identifier)}
+            aria-describedby={
+              errors.identifier ? 'identifier-error' : undefined
+            }
+            {...register('identifier', {
+              required: `${accountType === 'student' ? 'NIM' : 'NIP'} wajib diisi.`,
               pattern: {
-                value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                message: 'Masukkan alamat email yang valid.',
+                value: /^\d+$/,
+                message: `${accountType === 'student' ? 'NIM' : 'NIP'} harus berupa angka.`,
               },
-              validate: (value) =>
-                isCampusEmail(value) ||
-                'Gunakan email @student.bakrie.ac.id atau @bakrie.ac.id.',
             })}
           />
-          {errors.email && (
-            <span className="auth-field-error" id="email-error" role="alert">
-              {errors.email.message}
+          {errors.identifier && (
+            <span
+              className="auth-field-error"
+              id="identifier-error"
+              role="alert"
+            >
+              {errors.identifier.message}
             </span>
           )}
         </label>
@@ -72,13 +134,18 @@ export function LoginPage() {
             </span>
           )}
         </label>
-        <Button className="auth-submit" type="submit">
-          Masuk
+        <Button className="auth-submit" type="submit" disabled={submitting}>
+          {submitting ? 'Memproses...' : 'Masuk'}
         </Button>
       </form>
       <p className="auth-access-note">
-        Hanya untuk civitas academica Universitas Bakrie
+        Gunakan NIM mahasiswa atau NIP pegawai yang terdaftar.
       </p>
+      {accountType === 'student' && (
+        <p>
+          Belum memiliki akun? <Link to={paths.register}>Daftar mahasiswa</Link>
+        </p>
+      )}
       <Link className="auth-home-link" to={paths.home}>
         Kembali ke beranda
       </Link>

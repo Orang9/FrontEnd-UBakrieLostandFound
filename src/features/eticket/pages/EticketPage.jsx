@@ -1,96 +1,69 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
-import {
-  getStoredClaims,
-  upsertPreviewClaim,
-} from '../../../lib/claimStorage.js';
+import { useAuth } from '../../../app/providers/AuthProvider.jsx';
+import { getTicket } from '../api/eticketApi.js';
 import { paths } from '../../../app/router/paths.js';
-
-const QR_VALIDITY_MS = 30 * 60 * 1000;
-
-function createPreviewToken() {
-  const bytes = window.crypto.getRandomValues(new Uint8Array(32));
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join(
-    '',
-  );
-}
-
-function withFreshPreviewQr(claim) {
-  return {
-    ...claim,
-    schedule: {
-      ...claim.schedule,
-      qrToken: createPreviewToken(),
-      qrGeneratedAt: new Date().toISOString(),
-    },
-  };
-}
 
 function formatCountdown(milliseconds) {
   const totalSeconds = Math.ceil(milliseconds / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function formatDate(value) {
+  if (!value) return 'Jadwal tercatat di profil';
+  return new Intl.DateTimeFormat('id-ID', {
+    dateStyle: 'long',
+    timeZone: 'UTC',
+  }).format(new Date(`${value.slice(0, 10)}T00:00:00Z`));
 }
 
 export function EticketPage() {
-  const { ticketId } = useParams();
-  const [claim, setClaim] = useState(null);
+  const { ticketId: claimId } = useParams();
+  const { user } = useAuth();
+  const [ticket, setTicket] = useState(null);
   const [now, setNow] = useState(Date.now());
-  const [ticketError, setTicketError] = useState('');
-  const [ticketReady, setTicketReady] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+
+  const loadTicket = useCallback(async () => {
+    setRefreshing(true);
+    setError('');
+    try {
+      const response = await getTicket(claimId);
+      setTicket({
+        ...response.data,
+        deadline:
+          Date.now() + Number(response.data.time_to_live_seconds) * 1000,
+      });
+    } catch (requestError) {
+      setError(
+        requestError.response?.data?.message ||
+          'E-Ticket gagal dimuat. Silakan coba kembali.',
+      );
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [claimId]);
 
   useEffect(() => {
-    try {
-      const scheduledClaim = getStoredClaims().find(
-        (storedClaim) =>
-          storedClaim.schedule?.ticketId === ticketId &&
-          storedClaim.status === 'SCHEDULED',
-      );
-      setClaim(scheduledClaim ?? null);
+    loadTicket();
+  }, [loadTicket]);
 
-      if (scheduledClaim && !scheduledClaim.schedule.qrToken) {
-        const refreshedClaim = withFreshPreviewQr(scheduledClaim);
-        upsertPreviewClaim(refreshedClaim);
-        setClaim(refreshedClaim);
-      }
-      setTicketReady(true);
-    } catch (error) {
-      setTicketError(
-        error instanceof Error
-          ? error.message
-          : 'E-Ticket preview gagal dimuat.',
-      );
-    }
-
+  useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
-  }, [ticketId]);
+  }, []);
 
-  function refreshQr() {
-    if (!claim) return;
-    try {
-      const refreshedClaim = withFreshPreviewQr(claim);
-      upsertPreviewClaim(refreshedClaim);
-      setClaim(refreshedClaim);
-      setNow(Date.now());
-      setTicketError('');
-    } catch (error) {
-      setTicketError(
-        error instanceof Error
-          ? error.message
-          : 'QR preview tidak dapat diperbarui.',
-      );
-    }
-  }
-
-  const expiresAt = claim
-    ? Date.parse(claim.schedule.qrGeneratedAt) + QR_VALIDITY_MS
-    : 0;
+  const expiresAt = ticket?.deadline ?? 0;
   const remaining = Math.max(0, expiresAt - now);
   const isExpired =
-    !claim?.schedule.qrToken || !Number.isFinite(expiresAt) || remaining === 0;
+    !ticket?.qr_token || !Number.isFinite(expiresAt) || remaining === 0;
 
   return (
     <main className="eticket-page">
@@ -101,96 +74,80 @@ export function EticketPage() {
       <div className="eticket-content">
         <section className="eticket-profile-card" aria-label="Profil pengguna">
           <div className="eticket-avatar" aria-hidden="true">
-            NF
+            {(user?.name || 'UB').slice(0, 2).toUpperCase()}
           </div>
           <div>
-            <h2>Najwa Naela Fawwaz</h2>
-            <p>Mahasiswa - Informatika</p>
+            <h2>{user?.name || 'Pengguna'}</h2>
+            <p>{user?.email || user?.role}</p>
           </div>
         </section>
 
-        {ticketError && (
+        {error && (
           <p className="eticket-error" role="alert">
-            {ticketError}
+            {error}
           </p>
         )}
 
-        {claim ? (
+        {loading ? (
+          <section className="eticket-card" role="status">
+            Menyiapkan E-Ticket...
+          </section>
+        ) : ticket ? (
           <section className="eticket-card" aria-labelledby="ticket-title">
             <div className="eticket-heading">
               <span>E-TICKET PENGAMBILAN</span>
-              <h2 id="ticket-title">{claim.item.name}</h2>
-              <p>Tiket #{ticketId}</p>
+              <h2 id="ticket-title">Klaim #{claimId}</h2>
             </div>
-
             <div className="eticket-qr-frame">
-              {ticketReady && claim.schedule.qrToken ? (
-                <div
-                  className={`eticket-qr${isExpired ? ' is-expired' : ''}`}
-                  aria-label={
-                    isExpired ? 'QR Code telah kedaluwarsa' : 'QR Code aktif'
-                  }
-                >
-                  <QRCodeSVG
-                    value={claim.schedule.qrToken}
-                    size={208}
-                    title={`QR code tiket ${ticketId}`}
-                  />
-                  {isExpired && (
-                    <span className="eticket-expired-overlay">Expired</span>
-                  )}
-                </div>
-              ) : (
-                <p className="eticket-qr-loading">
-                  {ticketError || 'Menyiapkan QR Code...'}
-                </p>
-              )}
+              <div
+                className={`eticket-qr${isExpired ? ' is-expired' : ''}`}
+                aria-label={
+                  isExpired ? 'QR Code telah kedaluwarsa' : 'QR Code aktif'
+                }
+              >
+                <QRCodeSVG
+                  value={ticket.qr_token}
+                  size={208}
+                  title={`QR code klaim ${claimId}`}
+                />
+                {isExpired && (
+                  <span className="eticket-expired-overlay">Expired</span>
+                )}
+              </div>
             </div>
-
             <p
               className={`eticket-countdown${isExpired ? ' is-expired' : ''}`}
               role="status"
               aria-live="polite"
             >
               {isExpired
-                ? 'Expired'
+                ? 'Token QR kedaluwarsa'
                 : `Berlaku ${formatCountdown(remaining)} lagi`}
             </p>
-
             <div className="eticket-schedule">
-              <span>Jadwal Pengambilan</span>
-              <strong>
-                {claim.schedule.date} - {claim.schedule.time}
-              </strong>
+              <span>Masa berlaku hingga</span>
+              <strong>{formatDate(ticket.expires_at)}</strong>
             </div>
-            <span className="eticket-status">TERJADWAL</span>
+            <span className="eticket-status">TERVERIFIKASI</span>
             <p className="eticket-note">
-              Token QR preview. Tunjukkan ke Admin BEM di Lemari Kaca untuk
-              proses validasi.
+              Tunjukkan kode ini kepada petugas Satpam untuk menyelesaikan
+              serah-terima barang.
             </p>
             <button
               className="eticket-refresh"
               type="button"
-              onClick={refreshQr}
-              disabled={!ticketReady}
+              onClick={loadTicket}
+              disabled={refreshing}
             >
-              Tampilkan / Perbarui QR Code
+              {refreshing ? 'Memuat...' : 'Tampilkan / Perbarui QR Code'}
             </button>
           </section>
         ) : (
           <section className="eticket-card" role="status">
-            <p>
-              Tiket tidak ditemukan. Tiket hanya tersedia setelah jadwal
-              dikonfirmasi dari profil.
-            </p>
+            Tiket tidak tersedia. QR hanya dapat dibuat untuk klaim yang
+            terverifikasi atau terjadwal.
           </section>
         )}
-
-        <p className="eticket-preview-note">
-          QR dan penghitung waktu ini hanya preview lokal. Pembuatan token
-          terenkripsi, validasi satu kali, dan konfirmasi pengambilan memerlukan
-          backend.
-        </p>
         <Link className="eticket-back-link" to={`${paths.profile}?tab=claims`}>
           Kembali ke profil
         </Link>

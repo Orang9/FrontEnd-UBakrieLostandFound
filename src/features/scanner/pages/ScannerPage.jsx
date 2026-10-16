@@ -6,12 +6,7 @@ import {
   Flashlight,
   ScanLine,
 } from 'lucide-react';
-import { useAuth } from '../../../app/providers/AuthProvider.jsx';
-import {
-  confirmPreviewHandover,
-  recordPreviewAudit,
-  validatePreviewTicket,
-} from '../lib/previewTicketValidation.js';
+import { validateTicket } from '../api/scannerApi.js';
 import { createScanner } from '../components/ScannerAdapter.jsx';
 
 const scannerConfig = {
@@ -41,40 +36,7 @@ const failureCopy = {
   },
 };
 
-function ClaimSummary({ claim, handoverComplete }) {
-  const details = [
-    ['Barang', claim.item.name],
-    ['Pemohon', 'Najwa Naela Fawwaz'],
-    [
-      'Kategori',
-      `${claim.item.category ?? 'Umum'} (sudah diverifikasi manual)`,
-    ],
-    [
-      'Slot',
-      `${claim.schedule.date.replace(', 2026', '')} - ${claim.schedule.time}`,
-    ],
-    [
-      'Status klaim',
-      handoverComplete
-        ? 'APPROVED > TERJADWAL > CLAIMED'
-        : 'APPROVED > TERJADWAL',
-    ],
-  ];
-
-  return (
-    <dl className="scanner-summary">
-      {details.map(([label, value]) => (
-        <div key={label}>
-          <dt>{label}</dt>
-          <dd>{value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
 export function ScannerPage() {
-  const { user } = useAuth();
   const [screen, setScreen] = useState('scan');
   const [scanAttempt, setScanAttempt] = useState(0);
   const [manualToken, setManualToken] = useState('');
@@ -83,7 +45,6 @@ export function ScannerPage() {
   const [cameraReady, setCameraReady] = useState(false);
   const [flashSupported, setFlashSupported] = useState(false);
   const [flashOn, setFlashOn] = useState(false);
-  const [actionError, setActionError] = useState('');
   const [handoverComplete, setHandoverComplete] = useState(false);
   const scannerRef = useRef(null);
   const screenRef = useRef(screen);
@@ -91,32 +52,31 @@ export function ScannerPage() {
 
   screenRef.current = screen;
 
-  const processToken = useCallback(
-    (rawToken) => {
-      if (screenRef.current !== 'scan') return;
-      const result = validatePreviewTicket(rawToken);
-      screenRef.current = result.valid ? 'valid' : 'failure';
+  const processToken = useCallback(async (rawToken) => {
+    if (screenRef.current !== 'scan') return;
+    screenRef.current = 'processing';
+    setManualToken('');
+    try {
+      const response = await validateTicket(rawToken);
+      const result = { valid: true, message: response.message };
       setValidation(result);
-      setScreen(result.valid ? 'valid' : 'failure');
-      setManualToken('');
-      setActionError('');
-
-      try {
-        recordPreviewAudit(
-          `TICKET_VALIDATION_${result.reason}`,
-          user?.id ?? user?.email ?? 'ADMIN_BEM_PREVIEW',
-          result.claim?.id,
-        );
-      } catch (error) {
-        setActionError(
-          error instanceof Error
-            ? `Hasil scan diperoleh, tetapi audit preview gagal disimpan: ${error.message}`
-            : 'Hasil scan diperoleh, tetapi audit preview gagal disimpan.',
-        );
-      }
-    },
-    [user],
-  );
+      setHandoverComplete(true);
+      screenRef.current = 'valid';
+      setScreen('valid');
+    } catch (error) {
+      const message =
+        error.response?.data?.message ||
+        'Token tidak valid atau server tidak dapat dihubungi.';
+      const reason = /expired/i.test(message)
+        ? 'EXPIRED'
+        : /already been claimed|already claimed|used/i.test(message)
+          ? 'USED'
+          : 'INVALID';
+      setValidation({ valid: false, reason, message });
+      screenRef.current = 'failure';
+      setScreen('failure');
+    }
+  }, []);
 
   processTokenRef.current = processToken;
 
@@ -210,40 +170,10 @@ export function ScannerPage() {
     setScanAttempt((attempt) => attempt + 1);
     setValidation(null);
     setManualToken('');
-    setActionError('');
     setHandoverComplete(false);
   }
 
-  function confirmHandover() {
-    if (!validation?.valid || handoverComplete) return;
-    try {
-      const result = confirmPreviewHandover(
-        validation,
-        user?.id ?? user?.email ?? 'ADMIN_BEM_PREVIEW',
-      );
-      if (!result.valid) {
-        setValidation(result);
-        screenRef.current = 'failure';
-        setScreen('failure');
-        return;
-      }
-      setValidation(result);
-      setHandoverComplete(true);
-      setActionError(
-        result.auditError
-          ? `Serah-terima tersimpan, tetapi audit preview gagal: ${result.auditError}`
-          : '',
-      );
-    } catch (error) {
-      setActionError(
-        error instanceof Error
-          ? `Serah-terima preview gagal disimpan: ${error.message}`
-          : 'Serah-terima preview gagal disimpan.',
-      );
-    }
-  }
-
-  if (screen === 'valid' && validation?.claim) {
+  if (screen === 'valid' && validation?.valid) {
     return (
       <main className="scanner-page scanner-result-page">
         <header className="scanner-header">
@@ -269,70 +199,24 @@ export function ScannerPage() {
               <Check size={22} />
             </span>
             <div>
-              <h2>
-                {handoverComplete ? 'SERAH-TERIMA SELESAI' : 'VALID / MATCH'}
-              </h2>
+              <h2>SERAH-TERIMA SELESAI</h2>
               <p>
-                {handoverComplete
-                  ? 'Barang telah diserahkan dan status klaim menjadi CLAIMED.'
-                  : 'Token sah, TTL belum habis.'}
+                {validation.message ||
+                  'Barang telah diserahkan dan status klaim menjadi CLAIMED.'}
               </p>
             </div>
           </section>
-
-          <section
-            className="scanner-result-card"
-            aria-labelledby="claim-summary-title"
+          <p className="scanner-identity-notice">
+            Backend telah memvalidasi token dan mencatat serah-terima secara
+            atomik.
+          </p>
+          <button
+            className="scanner-primary-action"
+            type="button"
+            onClick={scanAgain}
           >
-            <h2 id="claim-summary-title">
-              Ringkasan Klaim #{validation.claim.id}
-            </h2>
-            <ClaimSummary
-              claim={validation.claim}
-              handoverComplete={handoverComplete}
-            />
-          </section>
-
-          {!handoverComplete && (
-            <aside className="scanner-identity-notice">
-              Cocokkan identitas pemohon sebelum menyerahkan barang.
-            </aside>
-          )}
-          {actionError && (
-            <p className="scanner-action-error" role="alert">
-              {actionError}
-            </p>
-          )}
-          {handoverComplete ? (
-            <button
-              className="scanner-primary-action"
-              type="button"
-              onClick={scanAgain}
-            >
-              Scan E-Ticket Berikutnya
-            </button>
-          ) : (
-            <div className="scanner-result-actions">
-              <button
-                className="scanner-primary-action"
-                type="button"
-                onClick={confirmHandover}
-              >
-                Konfirmasi Serah-Terima
-              </button>
-              <button
-                className="scanner-secondary-action"
-                type="button"
-                onClick={scanAgain}
-              >
-                Batalkan
-              </button>
-              <p>
-                Status preview menjadi CLAIMED setelah konfirmasi. Pengiriman
-                email bukti memerlukan integrasi backend.
-              </p>
-            </div>
-          )}
+            Scan E-Ticket Berikutnya
+          </button>
         </div>
       </main>
     );
@@ -371,10 +255,8 @@ export function ScannerPage() {
                 : 'Token tidak valid atau klaim ganda akan ditolak sistem.'}
             </p>
           </aside>
-          {validation.claim && (
-            <p className="scanner-failure-claim">
-              Klaim #{validation.claim.id} · {validation.claim.item.name}
-            </p>
+          {validation.message && (
+            <p className="scanner-failure-claim">{validation.message}</p>
           )}
           <button
             className="scanner-retry-action"
@@ -384,8 +266,7 @@ export function ScannerPage() {
             Scan Ulang
           </button>
           <p className="scanner-audit-note">
-            Seluruh kejadian dicatat di Audit Trail preview (actor_id, jenis
-            peristiwa, timestamp). IP aktual hanya dapat dicatat backend.
+            Semua validasi yang diproses dicatat oleh backend.
           </p>
         </div>
       </main>
@@ -461,11 +342,6 @@ export function ScannerPage() {
       <p className="scanner-touch-note">
         Area sentuh min. 44 x 44 px - kontras tinggi outdoor
       </p>
-      {actionError && (
-        <p className="scanner-action-error scanner-dark-error" role="alert">
-          {actionError}
-        </p>
-      )}
     </main>
   );
 }

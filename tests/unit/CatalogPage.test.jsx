@@ -1,66 +1,94 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { AuthProvider } from '../../src/app/providers/AuthProvider.jsx';
 import { CatalogPage } from '../../src/features/catalog/index.js';
+import { getCatalog } from '../../src/features/catalog/api/catalogApi.js';
+
+vi.mock('../../src/features/catalog/api/catalogApi.js', () => ({
+  getCatalog: vi.fn(),
+}));
+
+const items = [
+  {
+    item_id: 1,
+    name: 'Dompet kulit',
+    found_location: 'Kantin',
+    found_date: '2026-10-10',
+    category_name: 'Dompet',
+    is_sensitive: 1,
+    status: 'secured',
+  },
+  {
+    item_id: 2,
+    name: 'Kunci motor',
+    found_location: 'Parkir B',
+    found_date: '2026-10-09',
+    category_name: 'Aksesori',
+    is_sensitive: 0,
+    status: 'pending',
+  },
+];
 
 afterEach(cleanup);
+beforeEach(() => {
+  getCatalog.mockImplementation(({ status }) =>
+    Promise.resolve({
+      data:
+        status === 'secured'
+          ? items.filter((item) => item.status === 'secured')
+          : items,
+    }),
+  );
+});
 
 function renderCatalog() {
   return render(
-    <MemoryRouter>
-      <CatalogPage />
-    </MemoryRouter>,
+    <AuthProvider>
+      <MemoryRouter>
+        <CatalogPage />
+      </MemoryRouter>
+    </AuthProvider>,
   );
 }
 
 describe('CatalogPage', () => {
-  it('shows catalog items and the sensitive-item privacy note', () => {
+  it('loads public found items from the backend API', async () => {
     renderCatalog();
 
     expect(
-      screen.getByRole('heading', { name: 'Temukan Barang' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', { name: 'Kunci motor Honda' }),
+      await screen.findByRole('heading', { name: 'Dompet kulit' }),
     ).toBeInTheDocument();
     expect(screen.getByText('Foto diburamkan (Sensitif)')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /Lihat detail/ })).toHaveLength(
-      4,
+      2,
     );
+    expect(getCatalog).toHaveBeenCalledWith({ status: 'all' });
   });
 
-  it('filters the catalog as the user types and selects a category', () => {
+  it('filters the returned items by text and requests the selected lifecycle status', async () => {
     renderCatalog();
+    await screen.findByRole('heading', { name: 'Dompet kulit' });
 
     fireEvent.change(screen.getByRole('searchbox', { name: 'Cari barang' }), {
       target: { value: 'parkir' },
     });
     expect(
-      screen.getByRole('heading', { name: 'Kunci motor Honda' }),
+      screen.getByRole('heading', { name: 'Kunci motor' }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('heading', { name: 'Laptop abu-abu' }),
+      screen.queryByRole('heading', { name: 'Dompet kulit' }),
     ).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Cari barang' }), {
-      target: { value: '' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Sensitif' }));
-    expect(
-      screen.getByRole('heading', { name: 'Dompet / kartu identitas' }),
-    ).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: /Lihat detail/ })).toHaveLength(
-      1,
+    fireEvent.click(screen.getByRole('button', { name: 'Tersedia' }));
+    await waitFor(() =>
+      expect(getCatalog).toHaveBeenLastCalledWith({ status: 'secured' }),
     );
-  });
-
-  it('shows an empty state when a filter has no matching items', () => {
-    renderCatalog();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Hilang' }));
-
-    expect(
-      screen.getByRole('heading', { name: 'Barang tidak ditemukan' }),
-    ).toBeInTheDocument();
   });
 });

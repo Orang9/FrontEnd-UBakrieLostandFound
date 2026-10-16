@@ -1,43 +1,83 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { ArrowLeft } from 'lucide-react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '../../../app/providers/ToastProvider.jsx';
 import { Button } from '../../../components/ui/Button.jsx';
-import { SYSTEM_MESSAGES } from '../../../constants/messages.js';
+import { getCategories } from '../../catalog/api/catalogApi.js';
+import { createItemReport } from '../api/reportItemApi.js';
 import { paths } from '../../../app/router/paths.js';
 import { ReportCategoryField } from '../components/ReportCategoryField.jsx';
 import { ReportPhotoField } from '../components/ReportPhotoField.jsx';
 
-const reportTypes = [
-  { value: 'found', label: 'Barang Temuan' },
-  { value: 'lost', label: 'Barang Hilang' },
-];
-
 export function ReportItemPage() {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { notify } = useToast();
-  const initialType = searchParams.get('type') === 'lost' ? 'lost' : 'found';
-  const [reportType, setReportType] = useState(initialType);
+  const [categories, setCategories] = useState([]);
+  const [categoryError, setCategoryError] = useState('');
+  const [loadingCategories, setLoadingCategories] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const {
     register,
     handleSubmit,
     watch,
+    reset,
     formState: { errors },
   } = useForm({
-    defaultValues: { category: 'sensitive' },
+    defaultValues: { category: '' },
   });
   const category = watch('category');
-  const isSensitive = category === 'sensitive';
+  const selectedCategory = categories.find(
+    (option) => String(option.category_id) === String(category),
+  );
+  const isSensitive = selectedCategory?.default_sensitive === 1;
 
-  function selectReportType(type) {
-    setReportType(type);
-  }
+  useEffect(() => {
+    let isCurrent = true;
+    getCategories()
+      .then((response) => {
+        if (isCurrent) setCategories(response.data ?? []);
+      })
+      .catch((error) => {
+        if (isCurrent) {
+          setCategoryError(
+            error.response?.data?.message ||
+              'Kategori gagal dimuat. Periksa koneksi ke server.',
+          );
+        }
+      })
+      .finally(() => {
+        if (isCurrent) setLoadingCategories(false);
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
 
-  function onSubmit() {
-    notify(SYSTEM_MESSAGES.reportUnavailable, 'info');
+  async function onSubmit(values) {
+    const formData = new FormData();
+    formData.append('name', values.name.trim());
+    formData.append('description', values.description?.trim() ?? '');
+    formData.append('found_location', values.location.trim());
+    formData.append('category_id', values.category);
+    formData.append('found_date', values.date);
+    formData.append('image', values.photo[0]);
+
+    setSubmitting(true);
+    try {
+      const response = await createItemReport(formData);
+      notify(response.message || 'Laporan barang berhasil dikirim.', 'success');
+      reset();
+      navigate(paths.catalog);
+    } catch (error) {
+      notify(
+        error.response?.data?.message || 'Laporan barang gagal dikirim.',
+        'error',
+      );
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -59,23 +99,10 @@ export function ReportItemPage() {
       </header>
 
       <div className="report-content">
-        <div
-          className="report-segmented"
-          role="group"
-          aria-label="Jenis laporan"
-        >
-          {reportTypes.map(({ value, label }) => (
-            <button
-              key={value}
-              type="button"
-              className={`report-segment${reportType === value ? ' is-active' : ''}`}
-              aria-pressed={reportType === value}
-              onClick={() => selectReportType(value)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <p role="status">
+          Saat ini laporan yang dapat dikirim adalah barang temuan.
+        </p>
+        {categoryError && <p role="alert">{categoryError}</p>}
 
         <form
           className="report-form"
@@ -98,23 +125,17 @@ export function ReportItemPage() {
 
           <ReportCategoryField
             category={category}
+            categories={categories}
             error={errors.category}
-            isSensitive={isSensitive}
             register={register}
           />
 
           <label className="report-field" htmlFor="item-location">
-            <span>
-              {reportType === 'lost' ? 'Lokasi hilang' : 'Lokasi ditemukan'}
-            </span>
+            <span>Lokasi ditemukan</span>
             <input
               id="item-location"
               type="text"
-              placeholder={
-                reportType === 'lost'
-                  ? 'Contoh: Kantin gedung A'
-                  : 'Contoh: Kantin gedung A'
-              }
+              placeholder="Contoh: Kantin gedung A"
               aria-invalid={Boolean(errors.location)}
               {...register('location', { required: 'Lokasi wajib diisi.' })}
             />
@@ -123,32 +144,18 @@ export function ReportItemPage() {
             )}
           </label>
 
-          <div className="report-datetime-grid">
-            <label className="report-field" htmlFor="item-date">
-              <span>Tanggal</span>
-              <input
-                id="item-date"
-                type="date"
-                aria-invalid={Boolean(errors.date)}
-                {...register('date', { required: 'Tanggal wajib diisi.' })}
-              />
-              {errors.date && (
-                <span className="report-error">{errors.date.message}</span>
-              )}
-            </label>
-            <label className="report-field" htmlFor="item-time">
-              <span>Waktu</span>
-              <input
-                id="item-time"
-                type="time"
-                aria-invalid={Boolean(errors.time)}
-                {...register('time', { required: 'Waktu wajib diisi.' })}
-              />
-              {errors.time && (
-                <span className="report-error">{errors.time.message}</span>
-              )}
-            </label>
-          </div>
+          <label className="report-field" htmlFor="item-date">
+            <span>Tanggal ditemukan</span>
+            <input
+              id="item-date"
+              type="date"
+              aria-invalid={Boolean(errors.date)}
+              {...register('date', { required: 'Tanggal wajib diisi.' })}
+            />
+            {errors.date && (
+              <span className="report-error">{errors.date.message}</span>
+            )}
+          </label>
 
           <ReportPhotoField
             errors={errors}
@@ -162,15 +169,32 @@ export function ReportItemPage() {
               id="item-description"
               rows={4}
               placeholder="Tambahkan ciri-ciri barang"
-              {...register('description')}
+              aria-invalid={Boolean(errors.description)}
+              {...register('description', {
+                required: 'Deskripsi wajib diisi.',
+              })}
             />
+            {errors.description && (
+              <span className="report-error">{errors.description.message}</span>
+            )}
           </label>
 
           <div className="report-submit-area">
-            <Button className="report-submit-button" type="submit">
-              Kirim Laporan
+            <Button
+              className="report-submit-button"
+              type="submit"
+              disabled={
+                submitting ||
+                loadingCategories ||
+                Boolean(categoryError) ||
+                categories.length === 0
+              }
+            >
+              {submitting || loadingCategories
+                ? 'Memproses...'
+                : 'Kirim Laporan'}
             </Button>
-            <p>Status awal: Menunggu di Pos Satpam / Tersedia di Lemari</p>
+            <p>Status awal: Menunggu di Pos Satpam</p>
           </div>
         </form>
       </div>

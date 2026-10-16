@@ -3,10 +3,11 @@ import { AdminLayout } from '../../layouts/AdminLayout.jsx';
 import { AuthLayout } from '../../layouts/AuthLayout.jsx';
 import { UserLayout } from '../../layouts/UserLayout.jsx';
 import { AuditPage } from '../../features/audit/index.js';
-import { CatalogPage } from '../../features/catalog/index.js';
+import { CatalogItemPage, CatalogPage } from '../../features/catalog/index.js';
 import { ClaimPage, ReviewClaimsPage } from '../../features/claim/index.js';
 import { DashboardPage } from '../../features/dashboard/index.js';
 import { LoginPage } from '../../features/auth/index.js';
+import { RegisterPage } from '../../features/auth/index.js';
 import { EticketPage } from '../../features/eticket/index.js';
 import { HomePage } from '../../features/home/index.js';
 import { IntakePage } from '../../features/intake/index.js';
@@ -24,19 +25,17 @@ import { paths } from './paths.js';
 export const router = createBrowserRouter([
   {
     element: <AuthLayout />,
-    children: [{ path: paths.login, element: <LoginPage /> }],
+    children: [
+      { path: paths.login, element: <LoginPage /> },
+      { path: paths.register, element: <RegisterPage /> },
+    ],
   },
   {
     element: <UserLayout />,
     children: [
       { path: paths.home, element: <HomePage /> },
       { path: paths.catalog, element: <CatalogPage /> },
-      { path: paths.catalogItem(), element: <ClaimPage /> },
-      { path: paths.claim(), element: <ClaimPage /> },
-      { path: paths.reportItem, element: <ReportItemPage /> },
-      { path: paths.profile, element: <ProfilePage /> },
-      { path: paths.scheduling, element: <SchedulingPage /> },
-      { path: paths.eticket(), element: <EticketPage /> },
+      { path: paths.catalogItem(), element: <CatalogItemPage /> },
     ],
   },
   {
@@ -44,7 +43,13 @@ export const router = createBrowserRouter([
     children: [
       {
         element: <UserLayout />,
-        children: [],
+        children: [
+          { path: paths.claim(), element: <ClaimPage /> },
+          { path: paths.reportItem, element: <ReportItemPage /> },
+          { path: paths.profile, element: <ProfilePage /> },
+          { path: paths.scheduling, element: <SchedulingPage /> },
+          { path: paths.eticket(), element: <EticketPage /> },
+        ],
       },
       {
         element: <RoleRoute />,

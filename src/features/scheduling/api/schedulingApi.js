@@ -6,6 +6,10 @@ export async function getSlots(params) {
 }
 
 export async function createSchedule(payload) {
-  const { data } = await apiClient.post('/schedules', payload);
+  const { claimId, ...schedule } = payload;
+  const { data } = await apiClient.post(
+    `/claims/${encodeURIComponent(claimId)}/schedule`,
+    schedule,
+  );
   return data;
 }

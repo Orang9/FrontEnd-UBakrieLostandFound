@@ -49,7 +49,10 @@ function PhotoPreview({ file, isSensitive }) {
 
 export function ReportPhotoField({ errors, isSensitive, register }) {
   const [selectedFile, setSelectedFile] = useState(null);
-  const photoField = register('photo', { validate: validateReportPhoto });
+  const photoField = register('photo', {
+    required: 'Foto barang wajib diunggah.',
+    validate: validateReportPhoto,
+  });
 
   return (
     <div className="report-field">

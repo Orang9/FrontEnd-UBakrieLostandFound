@@ -16,6 +16,13 @@ export const CLAIM_STATUS = Object.freeze({
 });
 
 export const STATUS_LABELS = Object.freeze({
+  pending: 'Menunggu di Pos Satpam',
+  secured: 'Tersedia di Lemari',
+  claimed: 'Sudah diambil',
+  donated: 'Didonasikan',
+  verified: 'Disetujui',
+  scheduled: 'Terjadwal',
+  rejected: 'Ditolak',
   [ITEM_STATUS.AVAILABLE]: 'Tersedia di Lemari',
   [ITEM_STATUS.WAITING_AT_SECURITY]: 'Menunggu di Pos Satpam',
   [ITEM_STATUS.CLAIMED]: 'Diklaim',
@@ -27,6 +34,13 @@ export const STATUS_LABELS = Object.freeze({
 });
 
 export const STATUS_TONES = Object.freeze({
+  pending: 'warning',
+  secured: 'success',
+  claimed: 'info',
+  donated: 'neutral',
+  verified: 'success',
+  scheduled: 'violet',
+  rejected: 'danger',
   [ITEM_STATUS.AVAILABLE]: 'success',
   [ITEM_STATUS.WAITING_AT_SECURITY]: 'warning',
   [ITEM_STATUS.CLAIMED]: 'info',

@@ -1,6 +1,5 @@
-import { apiClient } from '../../../lib/apiClient.js';
+import { getMyClaims } from '../../claim/api/claimApi.js';
 
 export async function getProfile() {
-  const { data } = await apiClient.get('/profile');
-  return data;
+  return getMyClaims();
 }
