@@ -17,9 +17,9 @@ import {
   AdminSchedulingPage,
 } from '../../features/scheduling/index.js';
 import { ScannerPage } from '../../features/scanner/index.js';
+import { paths } from './paths.js';
 import { ProtectedRoute } from './ProtectedRoute.jsx';
 import { RoleRoute } from './RoleRoute.jsx';
-import { paths } from './paths.js';
 
 export const router = createBrowserRouter([
   {
@@ -31,23 +31,24 @@ export const router = createBrowserRouter([
     children: [
       { path: paths.home, element: <HomePage /> },
       { path: paths.catalog, element: <CatalogPage /> },
-      { path: paths.catalogItem(), element: <ClaimPage /> },
-      { path: paths.claim(), element: <ClaimPage /> },
-      { path: paths.reportItem, element: <ReportItemPage /> },
-      { path: paths.profile, element: <ProfilePage /> },
-      { path: paths.scheduling, element: <SchedulingPage /> },
-      { path: paths.eticket(), element: <EticketPage /> },
+      {
+        element: <ProtectedRoute />,
+        children: [
+          { path: paths.catalogItem(), element: <ClaimPage /> },
+          { path: paths.claim(), element: <ClaimPage /> },
+          { path: paths.reportItem, element: <ReportItemPage /> },
+          { path: paths.profile, element: <ProfilePage /> },
+          { path: paths.scheduling, element: <SchedulingPage /> },
+          { path: paths.eticket(), element: <EticketPage /> },
+        ],
+      },
     ],
   },
   {
     element: <ProtectedRoute />,
     children: [
       {
-        element: <UserLayout />,
-        children: [],
-      },
-      {
-        element: <RoleRoute />,
+        element: <RoleRoute role="ADMIN_BEM" />,
         children: [
           {
             element: <AdminLayout />,

@@ -9,7 +9,7 @@ import {
   Upload,
   Wallet,
 } from 'lucide-react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../../app/providers/ToastProvider.jsx';
 import { Button } from '../../../components/ui/Button.jsx';
 import { StatusBadge } from '../../../components/domain/StatusBadge.jsx';
@@ -204,6 +204,14 @@ export function ClaimPage() {
           <h1>Ajukan Klaim</h1>
         </div>
       </header>
+
+      <nav className="claim-breadcrumb" aria-label="Breadcrumb">
+        <Link to={paths.catalog}>Katalog</Link>
+        <span aria-hidden="true">/</span>
+        <span>{item.name}</span>
+        <span aria-hidden="true">/</span>
+        <span>Ajukan Klaim</span>
+      </nav>
 
       <div className="claim-content">
         <ItemSummary item={item} />

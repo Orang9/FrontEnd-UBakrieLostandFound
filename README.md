@@ -2,30 +2,35 @@
 
 Aplikasi frontend web untuk layanan barang hilang dan ditemukan di lingkungan Universitas Bakrie. Proyek ini menggunakan React SPA dan disusun per fitur supaya pengembangan setiap epic dapat dilakukan secara terpisah.
 
-> **Status:** prototipe frontend. Beranda, pencarian katalog, pelaporan, klaim, profil, penjadwalan, E-Ticket, dan scanner sudah memiliki UI/interaksi dengan data lokal atau contoh. Integrasi backend belum tersedia. Halaman detail barang, penerimaan barang, review klaim admin, penjadwalan admin, dashboard admin, dan audit trail masih berupa placeholder.
+> **Status:** prototipe frontend. Beranda, pencarian katalog, pelaporan, klaim, profil, penjadwalan, E-Ticket, scanner, dashboard admin, review klaim, kelola slot admin, audit trail, dan intake satpam memiliki UI/interaksi dengan data lokal atau contoh. Halaman login menggunakan kontrak endpoint backend `/auth/login`; autentikasi berhasil hanya jika backend tersedia dan mengembalikan session yang valid.
 
 ## Fitur
 
 Struktur navigasi dan folder fitur mencakup kebutuhan berikut:
 
-- **Autentikasi** — halaman masuk, session pengguna, dan proteksi rute; backend autentikasi belum terhubung.
+- **Autentikasi** — halaman masuk dengan NIM dan kata sandi, session pengguna, proteksi rute mahasiswa, serta proteksi role `ADMIN_BEM` untuk seluruh halaman admin.
 - **Beranda** — titik masuk pengguna dan navigasi ke katalog atau pelaporan.
 - **Katalog** — pencarian dan filter daftar barang contoh.
 - **Pelaporan barang** — form responsif untuk laporan kehilangan/temuan, kategori umum/sensitif, validasi field, dan upload foto JPG/PNG maksimal 5 MB dengan preview blur untuk item sensitif.
-- **Klaim** — form verifikasi kepemilikan, validasi dua jawaban/bukti opsional, pencegahan klaim aktif ganda, dan status preview `PENDING` pada profil. Review klaim admin masih placeholder.
+- **Klaim** — form verifikasi kepemilikan, validasi dua jawaban/bukti opsional, pencegahan klaim aktif ganda, dan status preview `PENDING` pada profil. Review klaim admin memiliki UI preview dengan data contoh; keputusan belum disimpan ke backend.
 - **Penjadwalan** — pengguna dengan klaim `APPROVED` dapat memilih tanggal dan slot, lalu mengubah klaim menjadi `SCHEDULED`.
 - **E-Ticket** — kartu klaim terjadwal di profil membuka QR preview dengan timer 30 menit dan aksi perbarui.
 - **Scanner admin** — pemindaian kamera atau input token manual, validasi tiket preview, dan hasil valid/kedaluwarsa/digunakan/duplikat. Halaman ini prototipe lokal, bukan validasi tiket produksi.
-- **Penerimaan barang** — halaman placeholder untuk pencatatan barang masuk.
-- **Dashboard admin** — halaman placeholder untuk ringkasan dan laporan.
-- **Audit trail** — halaman placeholder untuk riwayat aktivitas admin.
+- **Penerimaan barang / Intake Satpam** — form intake harian, validasi foto JPG/PNG maksimal 5 MB, checklist batch mingguan, dan preview pemindahan ke Lemari Kaca. Perubahan intake masih bersifat lokal dan belum memperbarui katalog/backend.
+- **Dashboard admin** — ringkasan KPI, grafik laporan/klaim, distribusi status, dan tabel batch mingguan dengan data contoh.
+- **Kelola slot admin** — daftar slot dan form tambah slot dalam preview lokal; perubahan belum tersimpan ke backend.
+- **Audit trail** — tabel aktivitas dan filter aktor/peristiwa/periode dengan data contoh.
 - **Profil dan riwayat** — tab riwayat klaim/laporan, kartu klaim dengan timeline status, dan badge status.
 
 Fitur yang berkomunikasi dengan backend memisahkan pemanggilan HTTP ke modul `api/` pada folder fiturnya. Kontrak endpoint yang tersedia saat ini adalah titik awal dan harus disesuaikan dengan API backend sebenarnya.
 
-Untuk sementara, halaman laporan, klaim, profil, penjadwalan, dan E-Ticket dapat dibuka tanpa login agar UI dapat diuji sebelum autentikasi tersedia. Pengiriman klaim disimpan hanya di `localStorage` browser sebagai data preview `PENDING`, bukan dikirim ke backend. Riwayat profil menyertakan klaim contoh berstatus `APPROVED` untuk mencoba alur jadwal; kartu klaim `SCHEDULED` dapat dibuka untuk menampilkan QR preview yang berlaku 30 menit dan dapat diperbarui. Slot, ketersediaan, perubahan status `SCHEDULED`, dan QR tiket hanya preview lokal; kuota real-time, persetujuan admin, token terenkripsi, validasi sekali pakai oleh scanner, serta tiket pengambilan sebenarnya belum terhubung ke backend. Pengiriman laporan masih menampilkan pemberitahuan bahwa integrasi backend belum tersedia. Data riwayat profil dan katalog awal merupakan data contoh.
+Beranda dan katalog dapat dibuka tanpa login. Pengajuan klaim, pelaporan, profil/riwayat, penjadwalan, dan E-Ticket memerlukan session pengguna. Akses ke semua halaman `/admin/*` memerlukan session dengan role `ADMIN_BEM`; pengguna tanpa session diarahkan ke `/login`, sedangkan role lain diarahkan ke beranda.
 
-Scanner admin tetap dilindungi session dan role admin. Pemindaian kamera atau input manual, validasi preview, dan perubahan status menjadi `CLAIMED` berjalan di `localStorage` browser yang sama. Token terenkripsi, validasi lintas perangkat, audit IP, dan konfirmasi pengambilan yang sebenarnya memerlukan backend.
+Form login mengirim `{ "nim": "...", "password": "..." }` ke `POST /auth/login`. Backend diharapkan mengembalikan `{ "user": { "id": "...", "nim": "...", "name": "...", "role": "MAHASISWA|ADMIN_BEM" }, "token": "..." }`. Token session disimpan di `localStorage` dan dikirim sebagai bearer token untuk permintaan API. Backend tetap harus memvalidasi kredensial serta role; route guard frontend bukan pengganti otorisasi backend.
+
+Pengiriman klaim disimpan hanya di `localStorage` browser sebagai data preview `PENDING`, bukan dikirim ke backend. Riwayat profil menyertakan klaim contoh berstatus `APPROVED` untuk mencoba alur jadwal; kartu klaim `SCHEDULED` dapat dibuka untuk menampilkan QR preview yang berlaku 30 menit dan dapat diperbarui. Slot, ketersediaan, perubahan status `SCHEDULED`, intake, dan QR tiket hanya preview lokal; kuota real-time, persetujuan admin, token terenkripsi, validasi sekali pakai oleh scanner, serta tiket pengambilan sebenarnya belum terhubung ke backend. Pengiriman laporan masih menampilkan pemberitahuan bahwa integrasi backend belum tersedia. Data riwayat profil dan katalog awal merupakan data contoh.
+
+Mahasiswa yang sudah login dapat keluar melalui tombol **Keluar** di topbar desktop atau navigasi bawah mobile. Session dihapus dari browser dan pengguna dikembalikan ke beranda.
 
 ## Tech stack
 

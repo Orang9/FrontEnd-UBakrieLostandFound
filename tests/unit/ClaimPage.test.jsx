@@ -25,7 +25,7 @@ function renderClaimFlow(itemId = 'dompet-kartu-identitas') {
 }
 
 describe('ClaimPage', () => {
-  it('shows an item-specific verification form without login', () => {
+  it('shows an item-specific verification form', () => {
     renderClaimFlow();
 
     expect(

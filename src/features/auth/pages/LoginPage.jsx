@@ -1,57 +1,90 @@
-import { Link } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { Button } from '../../../components/ui/Button.jsx';
 import { useToast } from '../../../app/providers/ToastProvider.jsx';
-import { SYSTEM_MESSAGES } from '../../../constants/messages.js';
+import { useAuth } from '../../../app/providers/AuthProvider.jsx';
 import { paths } from '../../../app/router/paths.js';
+import { login as authenticate } from '../api/authApi.js';
 
-const CAMPUS_EMAIL_DOMAINS = ['student.bakrie.ac.id', 'bakrie.ac.id'];
-
-function isCampusEmail(value) {
-  const domain = value.trim().toLowerCase().split('@').at(-1);
-  return CAMPUS_EMAIL_DOMAINS.includes(domain);
+function getLoginErrorMessage(error) {
+  if (typeof error?.response?.data?.message === 'string') {
+    return error.response.data.message;
+  }
+  if (error?.response?.status === 401) {
+    return 'NIM atau kata sandi tidak sesuai.';
+  }
+  if (error?.request && !error?.response) {
+    return 'Tidak dapat terhubung ke server. Periksa koneksi Anda.';
+  }
+  return 'Login gagal. Silakan coba kembali.';
 }
 
 export function LoginPage() {
+  const { login: saveSession, isAuthenticated, user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { notify } = useToast();
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm();
-  const { notify } = useToast();
 
-  function onSubmit() {
-    notify(SYSTEM_MESSAGES.authUnavailable, 'info');
+  if (isAuthenticated) {
+    return (
+      <Navigate
+        to={user?.role === 'ADMIN_BEM' ? paths.admin.dashboard : paths.home}
+        replace
+      />
+    );
+  }
+
+  async function onSubmit(credentials) {
+    try {
+      const session = await authenticate({
+        nim: credentials.nim.trim(),
+        password: credentials.password,
+      });
+      saveSession(session);
+
+      const destination = location.state?.from;
+      const fallback =
+        session.user.role === 'ADMIN_BEM' ? paths.admin.dashboard : paths.home;
+      navigate(
+        destination
+          ? `${destination.pathname}${destination.search ?? ''}${destination.hash ?? ''}`
+          : fallback,
+        { replace: true },
+      );
+    } catch (error) {
+      notify(getLoginErrorMessage(error), 'error');
+    }
   }
 
   return (
     <section className="auth-content">
       <h1>Masuk</h1>
-      <p className="auth-subtitle">Gunakan akun email kampus</p>
+      <p className="auth-subtitle">Gunakan NIM dan kata sandi akun Anda</p>
       <form className="auth-form" noValidate onSubmit={handleSubmit(onSubmit)}>
-        <label className="auth-field" htmlFor="email">
-          <span>Email Kampus</span>
+        <label className="auth-field" htmlFor="nim">
+          <span>NIM</span>
           <input
-            id="email"
-            type="email"
-            autoComplete="email"
-            placeholder="nama@student.bakrie.ac.id"
-            aria-invalid={Boolean(errors.email)}
-            aria-describedby={errors.email ? 'email-error' : undefined}
-            {...register('email', {
-              required: 'Email kampus wajib diisi.',
-              pattern: {
-                value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                message: 'Masukkan alamat email yang valid.',
-              },
+            id="nim"
+            type="text"
+            inputMode="numeric"
+            autoComplete="username"
+            placeholder="Masukkan NIM"
+            aria-invalid={Boolean(errors.nim)}
+            aria-describedby={errors.nim ? 'nim-error' : undefined}
+            {...register('nim', {
+              required: 'NIM wajib diisi.',
               validate: (value) =>
-                isCampusEmail(value) ||
-                'Gunakan email @student.bakrie.ac.id atau @bakrie.ac.id.',
+                /^\d+$/.test(value.trim()) || 'NIM hanya boleh berisi angka.',
             })}
           />
-          {errors.email && (
-            <span className="auth-field-error" id="email-error" role="alert">
-              {errors.email.message}
+          {errors.nim && (
+            <span className="auth-field-error" id="nim-error" role="alert">
+              {errors.nim.message}
             </span>
           )}
         </label>
@@ -72,8 +105,8 @@ export function LoginPage() {
             </span>
           )}
         </label>
-        <Button className="auth-submit" type="submit">
-          Masuk
+        <Button className="auth-submit" type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Memproses...' : 'Masuk'}
         </Button>
       </form>
       <p className="auth-access-note">

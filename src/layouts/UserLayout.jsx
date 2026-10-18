@@ -1,6 +1,17 @@
-import { Link, NavLink, Outlet } from 'react-router-dom';
-import { useLocation } from 'react-router-dom';
-import { Home, PackageSearch, PlusCircle, UserRound } from 'lucide-react';
+import {
+  Link,
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
+import {
+  Home,
+  LogOut,
+  PackageSearch,
+  PlusCircle,
+  UserRound,
+} from 'lucide-react';
 import { useAuth } from '../app/providers/AuthProvider.jsx';
 import { paths } from '../app/router/paths.js';
 
@@ -12,8 +23,9 @@ const navigation = [
 ];
 
 export function UserLayout() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const isHome = pathname === paths.home;
   const isCatalog = pathname === paths.catalog;
   const isReport = pathname === paths.reportItem;
@@ -22,20 +34,69 @@ export function UserLayout() {
   const isEticket = pathname.startsWith('/tickets/');
   const isClaim =
     pathname.startsWith('/catalog/') || pathname.startsWith('/items/');
+  const appShellClasses = [
+    'app-shell',
+    isAuthenticated ? 'is-authenticated' : '',
+    isHome ? 'is-home' : '',
+    isCatalog ? 'is-catalog' : '',
+    isReport ? 'is-report' : '',
+    isProfile ? 'is-profile' : '',
+    isScheduling ? 'is-scheduling' : '',
+    isEticket ? 'is-eticket' : '',
+    isClaim ? 'is-claim' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const initials =
+    user?.name
+      ?.trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join('')
+      .toUpperCase() || 'UB';
+
+  function signOut() {
+    logout();
+    navigate(paths.home, { replace: true });
+  }
 
   return (
-    <div
-      className={`app-shell${isHome ? ' is-home' : ''}${isCatalog ? ' is-catalog' : ''}${isReport ? ' is-report' : ''}${isProfile ? ' is-profile' : ''}${isScheduling ? ' is-scheduling' : ''}${isEticket ? ' is-eticket' : ''}${isClaim ? ' is-claim' : ''}`}
-    >
+    <div className={appShellClasses}>
       <header className="topbar">
         <Link className="brand" to={paths.home}>
           <span className="brand-mark" aria-hidden="true">
             UB
           </span>
-          <span>Lost &amp; Found</span>
+          <span>UBakrie Lost &amp; Found</span>
         </Link>
+        <nav className="topbar-navigation" aria-label="Navigasi utama">
+          {navigation.map(({ to, label }) => (
+            <NavLink
+              key={label}
+              to={to}
+              className={({ isActive }) =>
+                `topbar-nav-link${isActive || (label === 'Profil' && isEticket) ? ' is-active' : ''}`
+              }
+            >
+              {label}
+            </NavLink>
+          ))}
+        </nav>
         <div className="topbar-account">
-          {isAuthenticated ? user?.name : <Link to={paths.login}>Masuk</Link>}
+          {isAuthenticated ? (
+            <>
+              <span className="topbar-user-name">{user?.name}</span>
+              <button className="topbar-logout" type="button" onClick={signOut}>
+                Keluar
+              </button>
+            </>
+          ) : (
+            <Link to={paths.login}>Masuk</Link>
+          )}
+          <span className="topbar-avatar" aria-hidden="true">
+            {initials}
+          </span>
         </div>
       </header>
       <main className="page-content">
@@ -54,6 +115,16 @@ export function UserLayout() {
             <span>{label}</span>
           </NavLink>
         ))}
+        {isAuthenticated && (
+          <button
+            className="nav-link logout-nav-link"
+            type="button"
+            onClick={signOut}
+          >
+            <LogOut size={20} aria-hidden="true" />
+            <span>Keluar</span>
+          </button>
+        )}
       </nav>
     </div>
   );

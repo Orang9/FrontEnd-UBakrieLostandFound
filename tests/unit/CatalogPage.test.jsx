@@ -63,4 +63,23 @@ describe('CatalogPage', () => {
       screen.getByRole('heading', { name: 'Barang tidak ditemukan' }),
     ).toBeInTheDocument();
   });
+
+  it('filters by desktop type, category, and status groups', () => {
+    renderCatalog();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Temuan' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Sensitif' }));
+
+    expect(
+      screen.getByRole('heading', { name: 'Dompet / kartu identitas' }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /Lihat detail/ })).toHaveLength(
+      1,
+    );
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Diklaim' }));
+    expect(
+      screen.getByRole('heading', { name: 'Barang tidak ditemukan' }),
+    ).toBeInTheDocument();
+  });
 });
