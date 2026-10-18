@@ -9,17 +9,23 @@ afterEach(cleanup);
 describe('AdminLayout', () => {
   it('uses the hamburger drawer as the only navigation and keeps the logo in the topbar', () => {
     const { container } = render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/admin/items']}>
         <AuthProvider>
           <AdminLayout />
         </AuthProvider>
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('Admin BEM')).toBeInTheDocument();
+    expect(
+      container.querySelector('.admin-mobile-brand span:last-child'),
+    ).toHaveTextContent('Kelola Barang');
     expect(
       screen.queryByText('Lost & Found Admin BEM'),
     ).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Kelola Barang' })).toHaveAttribute(
+      'href',
+      '/admin/items',
+    );
     expect(
       container.querySelector('.admin-mobile-nav'),
     ).not.toBeInTheDocument();

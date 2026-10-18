@@ -10,6 +10,7 @@ import { LoginPage } from '../../features/auth/index.js';
 import { EticketPage } from '../../features/eticket/index.js';
 import { HomePage } from '../../features/home/index.js';
 import { IntakePage } from '../../features/intake/index.js';
+import { ManageItemsPage } from '../../features/items/index.js';
 import { ProfilePage } from '../../features/profile/index.js';
 import { ReportItemPage } from '../../features/report-item/index.js';
 import {
@@ -56,6 +57,7 @@ export const router = createBrowserRouter([
               { path: paths.admin.dashboard, element: <DashboardPage /> },
               { path: paths.admin.scanner, element: <ScannerPage /> },
               { path: paths.admin.intake, element: <IntakePage /> },
+              { path: paths.admin.items, element: <ManageItemsPage /> },
               { path: paths.admin.claims, element: <ReviewClaimsPage /> },
               {
                 path: paths.admin.scheduling,

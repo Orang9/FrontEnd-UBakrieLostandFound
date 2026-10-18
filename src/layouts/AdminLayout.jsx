@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   ClipboardList,
+  Boxes,
   LayoutGrid,
   LayoutDashboard,
   LogOut,
@@ -19,13 +20,16 @@ const adminNavigation = [
   { to: paths.admin.claims, label: 'Verifikasi Klaim', icon: ClipboardList },
   { to: paths.admin.scanner, label: 'Scan QR', icon: ScanLine },
   { to: paths.admin.intake, label: 'Intake Satpam', icon: Warehouse },
+  { to: paths.admin.items, label: 'Kelola Barang', icon: Boxes },
   { to: paths.admin.scheduling, label: 'Kelola Slot', icon: LayoutGrid },
   { to: paths.admin.audit, label: 'Audit Trail', icon: ShieldCheck },
 ];
 
 export function AdminLayout() {
   const { logout } = useAuth();
+  const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const activeNavigation = adminNavigation.find(({ to }) => to === pathname);
 
   function closeMenu() {
     setMenuOpen(false);
@@ -70,7 +74,7 @@ export function AdminLayout() {
           <span className="brand-mark" aria-hidden="true">
             UB
           </span>
-          <span>Admin BEM</span>
+          <span>{activeNavigation?.label ?? 'Admin BEM'}</span>
         </div>
         <button
           className="admin-menu-toggle"

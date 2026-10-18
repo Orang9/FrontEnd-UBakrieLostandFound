@@ -2726,6 +2726,281 @@ a {
 .admin-table tbody tr:last-child td {
   border-bottom: 0;
 }
+.admin-items-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.admin-item-status-filters {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.admin-item-filter {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: white;
+  color: var(--color-ink-muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.admin-item-filter.is-active {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: white;
+  font-weight: 700;
+}
+.admin-item-filter-count {
+  opacity: 0.8;
+}
+.admin-items-refresh {
+  min-height: 42px;
+  flex: 0 0 auto;
+  gap: 8px;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.admin-item-report-list {
+  display: grid;
+  gap: 16px;
+}
+.admin-item-report-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  background: white;
+  box-shadow: 0 3px 12px rgb(30 30 30 / 5%);
+}
+.admin-item-report-main {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) 158px;
+  align-items: start;
+  gap: 18px;
+  padding: 20px;
+}
+.admin-item-thumbnail {
+  position: relative;
+  display: grid;
+  width: 96px;
+  height: 96px;
+  flex: 0 0 96px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--radius-control);
+  background: var(--color-info-soft);
+  color: var(--color-info);
+}
+.admin-item-thumbnail.is-sensitive {
+  background: var(--color-violet-soft);
+  color: var(--color-violet);
+}
+.admin-item-thumbnail.is-rejected {
+  background: var(--color-info-soft);
+  color: var(--color-info);
+}
+.admin-item-blind-listing {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(30 30 30 / 42%);
+  color: white;
+  backdrop-filter: blur(3px);
+}
+.admin-item-report-content {
+  min-width: 0;
+}
+.admin-item-report-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.admin-item-report-title {
+  min-width: 0;
+}
+.admin-item-report-type {
+  margin: 0 0 5px;
+  color: var(--color-primary);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.admin-item-report-title h2 {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 17px;
+  line-height: 1.35;
+}
+.admin-item-badges {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.admin-item-category-detail {
+  margin: 6px 0 12px;
+  color: var(--color-ink-muted);
+  font-size: 12px;
+}
+.admin-item-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin: 0;
+}
+.admin-item-metadata div {
+  display: grid;
+  gap: 3px;
+}
+.admin-item-metadata dt {
+  color: var(--color-ink-muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+.admin-item-metadata dd {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+.admin-item-description {
+  margin: 12px 0 0;
+  color: var(--color-ink-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.admin-item-report-actions {
+  display: grid;
+  gap: 8px;
+}
+.admin-item-report-actions .button {
+  width: 100%;
+  min-height: 42px;
+  padding-right: 10px;
+  padding-left: 10px;
+  font-size: 12px;
+}
+.admin-item-reject-trigger {
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+.admin-item-reject-trigger:hover {
+  background: var(--color-danger-soft);
+}
+.admin-item-review-button {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.admin-item-action-helper {
+  color: var(--color-ink-muted);
+  font-size: 10px;
+  line-height: 1.4;
+  text-align: center;
+}
+.admin-item-rejection-details {
+  display: grid;
+  gap: 5px;
+  margin-top: 12px;
+  padding: 11px 12px;
+  border-radius: var(--radius-control);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.admin-item-rejection-details p {
+  margin: 0;
+}
+.admin-item-rejection-details span {
+  color: var(--color-ink-muted);
+}
+.admin-item-rejection-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.85fr) minmax(0, 1.4fr);
+  gap: 14px;
+  padding: 18px 20px;
+  border-top: 1px dashed var(--color-line);
+  background: var(--color-surface);
+}
+.admin-item-rejection-form select,
+.admin-item-rejection-form textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: white;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 400;
+}
+.admin-item-rejection-form select {
+  min-height: 44px;
+}
+.admin-item-rejection-form textarea {
+  resize: vertical;
+}
+.admin-item-rejection-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.admin-item-rejection-actions .button {
+  min-height: 42px;
+}
+.admin-item-cancel-button {
+  border-color: var(--color-line);
+  color: var(--color-ink-muted);
+}
+.admin-item-confirm-reject {
+  background: var(--color-danger);
+}
+.admin-item-confirm-reject:hover {
+  background: var(--color-danger);
+  filter: brightness(0.94);
+}
+.admin-item-rejection-form .admin-data-note {
+  grid-column: 1 / -1;
+  margin: -4px 0 0;
+}
+.admin-item-empty {
+  text-align: center;
+}
+.admin-item-empty h2 {
+  margin: 0;
+  font-size: 16px;
+}
+.admin-item-empty p {
+  margin: 8px 0 0;
+  color: var(--color-ink-muted);
+  font-size: 13px;
+}
+.admin-item-list-footer {
+  display: grid;
+  gap: 5px;
+  color: var(--color-ink-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.admin-item-list-footer span {
+  font-size: 11px;
+}
 .dashboard-kpis {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4396,6 +4671,21 @@ a {
     margin: 0;
     padding: 24px 22px 40px;
   }
+  .admin-item-report-main {
+    grid-template-columns: 78px minmax(0, 1fr);
+    gap: 14px;
+  }
+  .admin-item-thumbnail {
+    width: 78px;
+    height: 78px;
+  }
+  .admin-item-report-actions {
+    grid-column: 2;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .admin-item-action-helper {
+    grid-column: 1 / -1;
+  }
   .dashboard-kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -4480,6 +4770,100 @@ a {
   }
   .admin-page-description {
     font-size: 13px;
+  }
+  .admin-items-toolbar {
+    display: grid;
+    gap: 10px;
+  }
+  .admin-item-status-filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 2px 1px 6px;
+    scrollbar-width: none;
+  }
+  .admin-item-status-filters::-webkit-scrollbar {
+    display: none;
+  }
+  .admin-item-filter {
+    min-height: 40px;
+    padding: 0 12px;
+    font-size: 12px;
+  }
+  .admin-items-refresh {
+    width: 100%;
+    justify-content: center;
+  }
+  .admin-item-report-main {
+    grid-template-columns: 58px minmax(0, 1fr);
+    align-items: start;
+    gap: 12px;
+    padding: 14px;
+  }
+  .admin-item-thumbnail {
+    width: 58px;
+    height: 58px;
+    border-radius: 9px;
+  }
+  .admin-item-thumbnail svg {
+    width: 23px;
+    height: 23px;
+  }
+  .admin-item-report-heading {
+    display: grid;
+    gap: 7px;
+  }
+  .admin-item-report-title h2 {
+    font-size: 14px;
+  }
+  .admin-item-badges {
+    justify-content: flex-start;
+  }
+  .admin-item-category-detail {
+    margin: 5px 0 10px;
+  }
+  .admin-item-metadata {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px 12px;
+  }
+  .admin-item-metadata div:last-child {
+    grid-column: 1 / -1;
+  }
+  .admin-item-metadata dd {
+    overflow-wrap: anywhere;
+    font-size: 11px;
+  }
+  .admin-item-description,
+  .admin-item-rejection-details {
+    font-size: 11px;
+  }
+  .admin-item-report-actions {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+  .admin-item-report-actions .button {
+    min-height: 46px;
+    font-size: 13px;
+  }
+  .admin-item-rejection-form {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    padding: 14px;
+  }
+  .admin-item-rejection-actions {
+    display: grid;
+    grid-column: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .admin-item-rejection-actions .button {
+    min-height: 46px;
+    padding: 0 8px;
+    font-size: 12px;
+  }
+  .admin-item-rejection-form .admin-data-note {
+    grid-column: auto;
   }
   .admin-preview-label {
     min-height: 26px;

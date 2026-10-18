@@ -15,6 +15,7 @@ export const paths = {
     dashboard: '/admin',
     scanner: '/admin/scanner',
     intake: '/admin/intake',
+    items: '/admin/items',
     claims: '/admin/claims',
     scheduling: '/admin/scheduling',
     audit: '/admin/audit',

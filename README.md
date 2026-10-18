@@ -2,7 +2,7 @@
 
 Aplikasi frontend web untuk layanan barang hilang dan ditemukan di lingkungan Universitas Bakrie. Proyek ini menggunakan React SPA dan disusun per fitur supaya pengembangan setiap epic dapat dilakukan secara terpisah.
 
-> **Status:** prototipe frontend. Beranda, pencarian katalog, pelaporan, klaim, profil, penjadwalan, E-Ticket, scanner, dashboard admin, review klaim, kelola slot admin, audit trail, dan intake satpam memiliki UI/interaksi dengan data lokal atau contoh. Halaman login menggunakan kontrak endpoint backend `/auth/login`; autentikasi berhasil hanya jika backend tersedia dan mengembalikan session yang valid.
+> **Status:** prototipe frontend. Beranda, pencarian katalog, pelaporan, klaim, profil, penjadwalan, E-Ticket, scanner, dashboard admin, review klaim, kelola barang, kelola slot admin, audit trail, dan intake satpam memiliki UI/interaksi dengan data lokal atau contoh. Halaman login menggunakan kontrak endpoint backend `/auth/login`; autentikasi berhasil hanya jika backend tersedia dan mengembalikan session yang valid.
 
 ## Fitur
 
@@ -16,6 +16,7 @@ Struktur navigasi dan folder fitur mencakup kebutuhan berikut:
 - **Penjadwalan** — pengguna dengan klaim `APPROVED` dapat memilih tanggal dan slot, lalu mengubah klaim menjadi `SCHEDULED`.
 - **E-Ticket** — kartu klaim terjadwal di profil membuka QR preview dengan timer 30 menit dan aksi perbarui.
 - **Scanner admin** — pemindaian kamera atau input token manual, validasi tiket preview, dan hasil valid/kedaluwarsa/digunakan/duplikat. Halaman ini prototipe lokal, bukan validasi tiket produksi.
+- **Kelola barang admin** — filter status, detail laporan, terima/catat, form alasan dan catatan penolakan, serta tinjau ulang laporan. Data dan perubahan hanya preview lokal; katalog, Audit Trail, serta email belum terhubung.
 - **Penerimaan barang / Intake Satpam** — form intake harian, validasi foto JPG/PNG maksimal 5 MB, checklist batch mingguan, dan preview pemindahan ke Lemari Kaca. Perubahan intake masih bersifat lokal dan belum memperbarui katalog/backend.
 - **Dashboard admin** — ringkasan KPI, grafik laporan/klaim, distribusi status, dan tabel batch mingguan dengan data contoh.
 - **Kelola slot admin** — daftar slot dan form tambah slot dalam preview lokal; perubahan belum tersimpan ke backend.
