@@ -1,30 +1,42 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ItemCard } from '../../../components/domain/ItemCard.jsx';
 import { EmptyState } from '../../../components/ui/EmptyState.jsx';
 import { paths } from '../../../app/router/paths.js';
 import { STATUS_LABELS } from '../../../constants/status.js';
-import { catalogItems } from '../data/catalogItems.js';
+import { getCatalog, normalizeItem } from '../api/catalogApi.js';
 
-const filters = ['Semua', 'Hilang', 'Temuan', 'Umum', 'Sensitif'];
-const typeFilters = ['Hilang', 'Temuan'];
+const filters = ['Semua', 'Umum', 'Sensitif'];
 const categoryFilters = ['Umum', 'Sensitif'];
 const statusFilters = [
   'WAITING_AT_SECURITY',
   'AVAILABLE',
   'CLAIMED',
-  'SCHEDULED',
 ];
 
 export function CatalogPage() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('Semua');
   const [desktopFilters, setDesktopFilters] = useState({
-    type: [],
     category: [],
     status: [],
   });
+
+  useEffect(() => {
+    let active = true;
+    getCatalog()
+      .then((data) => {
+        const rows = Array.isArray(data) ? data : data?.items ?? [];
+        if (active) setItems(rows.map(normalizeItem));
+      })
+      .catch(() => active && setError('Katalog tidak dapat dimuat. Coba lagi.'))
+      .finally(() => active && setLoading(false));
+    return () => { active = false; };
+  }, []);
 
   function toggleDesktopFilter(group, value) {
     setDesktopFilters((current) => ({
@@ -38,7 +50,7 @@ export function CatalogPage() {
   const visibleItems = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('id-ID');
 
-    return catalogItems.filter((item) => {
+    return items.filter((item) => {
       const matchesQuery = [
         item.name,
         item.location,
@@ -49,12 +61,7 @@ export function CatalogPage() {
       );
       const matchesFilter =
         activeFilter === 'Semua' ||
-        (activeFilter === 'Hilang' && item.type === 'Hilang') ||
-        (activeFilter === 'Temuan' && item.type === 'Temuan') ||
         item.category === activeFilter;
-      const matchesType =
-        desktopFilters.type.length === 0 ||
-        desktopFilters.type.includes(item.type);
       const matchesCategory =
         desktopFilters.category.length === 0 ||
         desktopFilters.category.includes(item.category);
@@ -65,12 +72,11 @@ export function CatalogPage() {
       return (
         matchesQuery &&
         matchesFilter &&
-        matchesType &&
         matchesCategory &&
         matchesStatus
       );
     });
-  }, [activeFilter, desktopFilters, query]);
+  }, [activeFilter, desktopFilters, query, items]);
 
   function renderCheckboxGroup(title, group, options) {
     return (
@@ -148,11 +154,6 @@ export function CatalogPage() {
         <aside className="catalog-sidebar" aria-label="Filter barang">
           <h2>Filter</h2>
           {renderCheckboxGroup(
-            'Jenis',
-            'type',
-            typeFilters.map((value) => ({ value, label: value })),
-          )}
-          {renderCheckboxGroup(
             'Kategori',
             'category',
             categoryFilters.map((value) => ({ value, label: value })),
@@ -167,11 +168,11 @@ export function CatalogPage() {
           )}
         </aside>
 
-        <p className="catalog-result-count" role="status">
-          {visibleItems.length} barang ditemukan
-        </p>
+        {loading && <p role="status">Memuat katalog...</p>}
+        {error && <p role="alert">{error}</p>}
+        {!loading && !error && <p className="catalog-result-count" role="status">{visibleItems.length} barang ditemukan</p>}
         <section className="catalog-results" aria-label="Daftar barang">
-          {visibleItems.length ? (
+          {loading ? null : visibleItems.length ? (
             visibleItems.map((item) => <ItemCard key={item.id} item={item} />)
           ) : (
             <EmptyState

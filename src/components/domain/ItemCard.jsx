@@ -23,9 +23,13 @@ export function ItemCard({ item }) {
       >
         <div
           className={`catalog-item-thumbnail${item.thumbnailTone ? ` tone-${item.thumbnailTone}` : ''}${item.category === 'Sensitif' ? ' is-sensitive' : ''}`}
-          aria-hidden="true"
+          aria-label={item.imageUrl ? `Foto ${item.name}` : 'Foto barang tidak tersedia'}
         >
-          <Icon size={30} strokeWidth={1.8} />
+          {item.imageUrl ? (
+            <img src={item.imageUrl} alt="" loading="lazy" />
+          ) : (
+            <Icon size={30} strokeWidth={1.8} aria-hidden="true" />
+          )}
         </div>
         <div className="catalog-item-content">
           <h2>{item.name}</h2>

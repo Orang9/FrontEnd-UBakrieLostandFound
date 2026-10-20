@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import {
   ArrowLeft,
@@ -20,7 +20,8 @@ import {
   MAX_PHOTO_SIZE_MB,
 } from '../../../constants/limits.js';
 import { paths } from '../../../app/router/paths.js';
-import { catalogItems } from '../../catalog/data/catalogItems.js';
+import { getCatalogItem, normalizeItem } from '../../catalog/api/catalogApi.js';
+import { createClaim } from '../api/claimApi.js';
 import {
   hasActiveClaimForItem,
   savePreviewClaim,
@@ -70,7 +71,15 @@ export function ClaimPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { notify } = useToast();
-  const item = catalogItems.find((catalogItem) => catalogItem.id === itemId);
+  const [item, setItem] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [submitError, setSubmitError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  useEffect(() => {
+    getCatalogItem(itemId).then((data) => setItem(normalizeItem(data)))
+      .catch(() => setSubmitError('Barang tidak dapat dimuat.'))
+      .finally(() => setLoading(false));
+  }, [itemId]);
   const [duplicateClaim, setDuplicateClaim] = useState(() =>
     item ? hasActiveClaimForItem(item.id) : false,
   );
@@ -80,6 +89,7 @@ export function ClaimPage() {
     formState: { errors },
   } = useForm({ defaultValues: { answers: ['', ''] } });
 
+  if (loading) return <div className="claim-page"><p role="status">Memuat barang...</p></div>;
   if (!item) {
     return (
       <div className="claim-page">
@@ -109,13 +119,13 @@ export function ClaimPage() {
     );
   }
 
-  const cannotClaim = item.status === ITEM_STATUS.CLAIMED;
+  const cannotClaim = item.status !== ITEM_STATUS.AVAILABLE;
   const questions = item.claimQuestions ?? [
     'Sebutkan ciri khusus barang yang ingin Anda klaim.',
     'Kapan dan di mana barang tersebut hilang?',
   ];
 
-  function onSubmit(values) {
+  async function onSubmit(values) {
     const answers = [values.answers[0], values.answers[1]];
     if (validateClaimAnswers(answers) !== true) return;
 
@@ -125,7 +135,13 @@ export function ClaimPage() {
         return;
       }
 
-      const id = `CL-${String(Date.now()).slice(-6)}`;
+      setSubmitting(true);
+      setSubmitError('');
+      const payload = new FormData();
+      payload.append('answers', JSON.stringify(answers));
+      if (values.evidence?.[0]) payload.append('evidence', values.evidence[0]);
+      const result = await createClaim(item.id, payload);
+      const id = String(result?.claim_id ?? result?.id ?? `CL-${String(Date.now()).slice(-6)}`);
       const submittedAt = new Date();
       const submittedTime = new Intl.DateTimeFormat('id-ID', {
         day: '2-digit',
@@ -183,7 +199,10 @@ export function ClaimPage() {
       navigate(`${paths.profile}?tab=claims&claimId=${encodeURIComponent(id)}`);
     } catch (error) {
       console.error('Could not save preview claim.', error);
+      setSubmitError(error?.response?.data?.message ?? 'Klaim tidak dapat dikirim.');
       notify(SYSTEM_MESSAGES.genericError, 'error');
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -215,9 +234,17 @@ export function ClaimPage() {
 
       <div className="claim-content">
         <ItemSummary item={item} />
+        {submitError && <p className="claim-error" role="alert">{submitError}</p>}
 
         <section className="claim-verification">
-          <h2>Verifikasi Kepemilikan</h2>
+          <h2>{cannotClaim ? 'Klaim belum tersedia' : 'Verifikasi Kepemilikan'}</h2>
+          {cannotClaim ? (
+            <p className="claim-description">
+              Barang masih menunggu di Pos Satpam atau sudah diklaim. Klaim hanya
+              tersedia setelah barang berstatus Tersedia di Lemari.
+            </p>
+          ) : (
+            <>
           <p className="claim-description">
             Jawab 2 pertanyaan kunci. Admin BEM akan meninjau secara manual
             sebelum klaim disetujui.
@@ -289,9 +316,9 @@ export function ClaimPage() {
                 <Button
                   className="claim-submit-button"
                   type="submit"
-                  disabled={cannotClaim}
+                  disabled={cannotClaim || submitting}
                 >
-                  {cannotClaim ? 'Barang sudah diklaim' : 'Kirim Klaim'}
+                  {cannotClaim ? 'Barang sudah diklaim' : submitting ? 'Mengirim...' : 'Kirim Klaim'}
                 </Button>
                 <p className="claim-footnote">
                   Anda sudah punya klaim aktif? Sistem menolak klaim ganda.
@@ -299,6 +326,8 @@ export function ClaimPage() {
               </div>
             )}
           </form>
+            </>
+          )}
         </section>
       </div>
     </div>

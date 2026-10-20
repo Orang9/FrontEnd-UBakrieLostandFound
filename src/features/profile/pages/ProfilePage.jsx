@@ -1,9 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { HistoryItemCard } from '../components/HistoryItemCard.jsx';
 import { ClaimTimeline } from '../components/ClaimTimeline.jsx';
-import { claimHistory, reportHistory } from '../data/profileHistory.js';
-import { getStoredClaims } from '../../../lib/claimStorage.js';
+import { getProfile } from '../api/profileApi.js';
 import { paths } from '../../../app/router/paths.js';
 
 const tabs = [
@@ -19,13 +18,27 @@ export function ProfilePage() {
   const [activeTab, setActiveTab] = useState(
     requestedTab === 'reports' ? 'reports' : 'claims',
   );
-  const [previewClaims] = useState(getStoredClaims);
-  const previewClaimIds = new Set(previewClaims.map((claim) => claim.id));
-  const claims = [
-    ...previewClaims,
-    ...claimHistory.filter((claim) => !previewClaimIds.has(claim.id)),
-  ];
-  const submittedClaim = previewClaims.find((claim) => claim.id === claimId);
+  const [profile, setProfile] = useState(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    getProfile().then(setProfile).catch(() => setError('Profil tidak dapat dimuat.'));
+  }, []);
+  const raw = profile?.data ?? profile ?? {};
+  const claims = (raw.claims ?? []).map((claim) => ({
+    ...claim,
+    id: String(claim.id ?? claim.claim_id),
+    status: String(claim.status ?? '').toUpperCase(),
+    item: claim.item ?? { id: claim.item_id, name: claim.item_name ?? 'Barang', category: claim.category ?? 'Umum', icon: claim.icon ?? 'backpack' },
+  }));
+  const reports = (raw.reports ?? []).map((report) => ({
+    ...report,
+    id: String(report.id ?? report.item_id),
+    item: { name: report.name ?? report.item_name ?? 'Barang', category: report.category ?? (Number(report.is_sensitive) ? 'Sensitif' : 'Umum'), icon: report.icon ?? 'backpack' },
+    type: report.report_type === 'lost' ? 'Hilang' : 'Temuan',
+    status: String(report.status ?? report.report_review_status ?? '').toUpperCase(),
+    date: report.found_date ?? report.date,
+  }));
+  const submittedClaim = claims.find((claim) => claim.id === claimId);
   const updatedClaim = claims.find((claim) => claim.id === claimId);
 
   return (
@@ -37,6 +50,8 @@ export function ProfilePage() {
       </header>
 
       <div className="profile-content">
+        {error && <p role="alert">{error}</p>}
+        {!profile && !error && <p role="status">Memuat riwayat...</p>}
         {submittedClaim?.status === 'PENDING' && (
           <aside className="profile-pending-banner" role="status">
             Klaim #{submittedClaim.id} berhasil disimpan untuk preview dan
@@ -108,7 +123,7 @@ export function ProfilePage() {
             role="tabpanel"
             aria-labelledby="profile-reports-tab"
           >
-            {reportHistory.map((report) => (
+            {reports.map((report) => (
               <HistoryItemCard
                 key={report.id}
                 item={report.item}

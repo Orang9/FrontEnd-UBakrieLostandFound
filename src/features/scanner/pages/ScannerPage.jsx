@@ -10,8 +10,8 @@ import { useAuth } from '../../../app/providers/AuthProvider.jsx';
 import {
   confirmPreviewHandover,
   recordPreviewAudit,
-  validatePreviewTicket,
 } from '../lib/previewTicketValidation.js';
+import { validateTicket } from '../api/scannerApi.js';
 import { createScanner } from '../components/ScannerAdapter.jsx';
 
 const scannerConfig = {
@@ -92,9 +92,28 @@ export function ScannerPage() {
   screenRef.current = screen;
 
   const processToken = useCallback(
-    (rawToken) => {
+    async (rawToken) => {
       if (screenRef.current !== 'scan') return;
-      const result = validatePreviewTicket(rawToken);
+      let result;
+      try {
+        const response = await validateTicket(rawToken);
+        const data = response?.data ?? response;
+        const claim = data?.claim ?? data ?? {};
+        result = {
+          valid: true,
+          claim: {
+            ...claim,
+            id: claim.id ?? claim.claim_id ?? 'validated',
+            item: claim.item ?? { name: claim.item_name ?? 'Barang', category: claim.category ?? 'Umum' },
+            schedule: claim.schedule ?? { date: claim.scheduled_date ?? '-', time: claim.time ?? '-' },
+          },
+          reason: 'VALID',
+        };
+      } catch (error) {
+        const message = error?.response?.data?.message ?? '';
+        const reason = /expired/i.test(message) ? 'EXPIRED' : /already|used/i.test(message) ? 'USED' : 'INVALID';
+        result = { valid: false, reason, error: message };
+      }
       screenRef.current = result.valid ? 'valid' : 'failure';
       setValidation(result);
       setScreen(result.valid ? 'valid' : 'failure');

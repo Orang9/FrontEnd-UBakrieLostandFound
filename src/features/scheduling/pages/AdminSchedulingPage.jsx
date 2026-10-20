@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useToast } from '../../../app/providers/ToastProvider.jsx';
+import { createAdminSlot, getAdminSlots, updateAdminSlot } from '../api/schedulingApi.js';
 
 const dates = [
   { id: '12', weekday: 'Sen', full: 'Senin, 12 Okt' },
@@ -7,37 +8,6 @@ const dates = [
   { id: '14', weekday: 'Rab', full: 'Rabu, 14 Okt' },
   { id: '15', weekday: 'Kam', full: 'Kamis, 15 Okt' },
   { id: '16', weekday: 'Jum', full: 'Jumat, 16 Okt' },
-];
-
-const initialSlots = [
-  {
-    id: 'slot-1',
-    date: '14',
-    time: '09.00 - 10.00',
-    status: 'Tersedia',
-    applicant: '-',
-  },
-  {
-    id: 'slot-2',
-    date: '14',
-    time: '10.00 - 11.00',
-    status: 'Penuh',
-    applicant: 'Raka Pratama',
-  },
-  {
-    id: 'slot-3',
-    date: '14',
-    time: '11.00 - 12.00',
-    status: 'Terjadwal',
-    applicant: 'Najwa Naela Fawwaz',
-  },
-  {
-    id: 'slot-4',
-    date: '14',
-    time: '13.00 - 14.00',
-    status: 'Tersedia',
-    applicant: '-',
-  },
 ];
 
 function statusTone(status) {
@@ -49,7 +19,8 @@ function statusTone(status) {
 
 export function AdminSchedulingPage() {
   const [selectedDate, setSelectedDate] = useState('14');
-  const [slots, setSlots] = useState(initialSlots);
+  const [slots, setSlots] = useState([]);
+  const [error, setError] = useState('');
   const [activeView, setActiveView] = useState('schedule');
   const [newSlot, setNewSlot] = useState({
     date: '2026-10-14',
@@ -59,6 +30,25 @@ export function AdminSchedulingPage() {
   const { notify } = useToast();
   const selectedDateInfo = dates.find((date) => date.id === selectedDate);
   const visibleSlots = slots.filter((slot) => slot.date === selectedDate);
+
+  async function loadSlots() {
+    try {
+      const response = await getAdminSlots();
+      setSlots((response.data || []).map((slot) => ({
+        id: slot.slot_id,
+        date: String(slot.slot_date || '').slice(-2),
+        time: `${String(slot.start_time).slice(0, 5).replace(':', '.')} - ${String(slot.end_time).slice(0, 5).replace(':', '.')}`,
+        status: slot.is_active ? (slot.booked_count >= slot.max_quota ? 'Penuh' : 'Tersedia') : 'Ditutup',
+        applicant: slot.claimant_name || '-',
+        isActive: Boolean(slot.is_active),
+      })));
+      setError('');
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Slot tidak dapat dimuat.');
+    }
+  }
+
+  useEffect(() => { loadSlots(); }, []);
 
   function addSlot(event) {
     event.preventDefault();
@@ -78,19 +68,14 @@ export function AdminSchedulingPage() {
       );
       return;
     }
-    setSlots((current) => [
-      ...current,
-      {
-        id: `slot-${Date.now()}`,
-        date: dateId,
-        time: `${newSlot.start.replace(':', '.')} - ${newSlot.end.replace(':', '.')}`,
-        status: 'Tersedia',
-        applicant: '-',
-      },
-    ]);
-    setSelectedDate(dateId);
-    setActiveView('schedule');
-    notify('Slot contoh ditambahkan pada tampilan ini.', 'success');
+    createAdminSlot({ date: newSlot.date, start_time: newSlot.start, end_time: newSlot.end })
+      .then(() => {
+        setSelectedDate(dateId);
+        setActiveView('schedule');
+        notify('Slot berhasil ditambahkan.', 'success');
+        return loadSlots();
+      })
+      .catch((requestError) => notify(requestError.response?.data?.message || 'Slot gagal ditambahkan.', 'error'));
   }
 
   function toggleSlot(slot) {
@@ -98,16 +83,9 @@ export function AdminSchedulingPage() {
       notify('Slot terjadwal tidak dapat ditutup pada preview.', 'info');
       return;
     }
-    setSlots((current) =>
-      current.map((item) =>
-        item.id === slot.id
-          ? {
-              ...item,
-              status: item.status === 'Ditutup' ? 'Tersedia' : 'Ditutup',
-            }
-          : item,
-      ),
-    );
+    updateAdminSlot(slot.id, { is_active: slot.status === 'Ditutup' })
+      .then(() => loadSlots())
+      .catch((requestError) => notify(requestError.response?.data?.message || 'Status slot gagal diubah.', 'error'));
   }
 
   function moveSlot(slot) {
@@ -127,7 +105,7 @@ export function AdminSchedulingPage() {
             Atur ketersediaan dan kapasitas jadwal pengambilan barang.
           </p>
         </div>
-        <span className="admin-preview-label">Data contoh</span>
+        <span className="admin-preview-label">Data database</span>
       </header>
 
       <div
@@ -189,7 +167,7 @@ export function AdminSchedulingPage() {
             ))}
           </div>
 
-          {visibleSlots.length ? (
+          {error ? <p className="admin-empty-note" role="alert">{error}</p> : visibleSlots.length ? (
             <>
               <div className="admin-table-wrap admin-slot-table-wrap">
                 <table className="admin-table admin-slot-table">

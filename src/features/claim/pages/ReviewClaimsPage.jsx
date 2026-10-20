@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
   Backpack,
@@ -9,48 +9,7 @@ import {
 } from 'lucide-react';
 import { StatusBadge } from '../../../components/domain/StatusBadge.jsx';
 import { useToast } from '../../../app/providers/ToastProvider.jsx';
-
-const claims = [
-  {
-    id: 'CL-0147',
-    item: 'Dompet / kartu identitas',
-    applicant: 'Najwa Naela Fawwaz',
-    category: 'Sensitif',
-    status: 'PENDING',
-    icon: 'wallet',
-    questions: [
-      ['Isi dompet selain kartu identitas', 'Kartu ATM dan struk belanja'],
-      ['Warna / ciri khusus dompet', 'Hitam, ada gantungan kunci kecil'],
-    ],
-    evidence: 'foto_ktm.jpg',
-  },
-  {
-    id: 'CL-0148',
-    item: 'Kunci motor Honda',
-    applicant: 'Raka Pratama',
-    category: 'Umum',
-    status: 'PENDING',
-    icon: 'key',
-    questions: [
-      ['Ciri khusus pada gantungan kunci', 'Gantungan karet warna merah'],
-      ['Kapan terakhir menggunakan kunci?', 'Kemarin sore di parkir B'],
-    ],
-    evidence: null,
-  },
-  {
-    id: 'CL-0142',
-    item: 'Tas ransel hitam',
-    applicant: 'Dina Putri',
-    category: 'Umum',
-    status: 'APPROVED',
-    icon: 'backpack',
-    questions: [
-      ['Isi barang di dalam tas', 'Buku catatan dan tempat pensil'],
-      ['Ciri khusus tas', 'Ada pin berbentuk bunga di sisi kanan'],
-    ],
-    evidence: null,
-  },
-];
+import { getAdminClaims, processAdminClaim } from '../../admin/api/adminApi.js';
 
 const statusTabs = [
   { id: 'PENDING', label: 'PENDING' },
@@ -192,7 +151,7 @@ function ClaimDetail({ claim, onBack, onAction }) {
         </div>
       </footer>
       <p className="admin-data-note">
-        Data klaim ini contoh tampilan. Keputusan belum disimpan ke backend.
+        Data klaim berasal dari backend. Keputusan disimpan ke database.
       </p>
     </article>
   );
@@ -200,9 +159,34 @@ function ClaimDetail({ claim, onBack, onAction }) {
 
 export function ReviewClaimsPage() {
   const [activeTab, setActiveTab] = useState('PENDING');
-  const [selectedClaim, setSelectedClaim] = useState(claims[0]);
+  const [claims, setClaims] = useState([]);
+  const [selectedClaim, setSelectedClaim] = useState(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+  const [error, setError] = useState('');
   const { notify } = useToast();
+
+  async function loadClaims() {
+    try {
+      const response = await getAdminClaims('all');
+      const values = (response.data || []).map((claim) => ({
+        id: claim.claim_id,
+        item: claim.item_name,
+        applicant: claim.claimer_name,
+        category: claim.is_sensitive ? 'Sensitif' : 'Umum',
+        status: claim.status === 'verified' ? 'APPROVED' : claim.status.toUpperCase(),
+        icon: 'backpack',
+        questions: [['Jawaban verifikasi', claim.challange_answer || '-']],
+        evidence: claim.has_evidence ? 'Bukti terlampir' : null,
+      }));
+      setClaims(values);
+      setSelectedClaim((current) => values.find((claim) => claim.id === current?.id) || values[0] || null);
+      setError('');
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Klaim tidak dapat dimuat.');
+    }
+  }
+
+  useEffect(() => { loadClaims(); }, []);
 
   const filteredClaims = useMemo(
     () => claims.filter((claim) => claim.status === activeTab),
@@ -232,7 +216,7 @@ export function ReviewClaimsPage() {
             keputusan.
           </p>
         </div>
-        <span className="admin-preview-label">Data contoh</span>
+        <span className="admin-preview-label">Data database</span>
       </header>
 
       <div
@@ -273,7 +257,7 @@ export function ReviewClaimsPage() {
             role="tabpanel"
             aria-labelledby={`review-tab-${activeTab}`}
           >
-            {filteredClaims.length ? (
+            {error ? <p className="admin-empty-note" role="alert">{error}</p> : filteredClaims.length ? (
               filteredClaims.map((claim) => (
                 <ClaimListCard
                   key={claim.id}
@@ -295,9 +279,16 @@ export function ReviewClaimsPage() {
             key={selectedClaim.id}
             claim={selectedClaim}
             onBack={() => setMobileDetailOpen(false)}
-            onAction={(action) =>
-              notify(`${action} hanya preview dan belum disimpan.`, 'info')
-            }
+            onAction={async (action) => {
+              const status = action === 'Persetujuan klaim' ? 'verified' : 'rejected';
+              try {
+                await processAdminClaim(selectedClaim.id, status);
+                notify(`Klaim berhasil ${status === 'verified' ? 'disetujui' : 'ditolak'}.`, 'success');
+                await loadClaims();
+              } catch (requestError) {
+                notify(requestError.response?.data?.message || 'Keputusan klaim gagal disimpan.', 'error');
+              }
+            }}
           />
         ) : (
           <section className="admin-panel review-detail-empty">

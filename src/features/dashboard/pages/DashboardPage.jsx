@@ -1,49 +1,27 @@
 import { Download, FileBarChart2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { KpiCard } from '../../../components/domain/KpiCard.jsx';
 import { useToast } from '../../../app/providers/ToastProvider.jsx';
-
-const monthlyData = [
-  { month: 'Mei', reports: 18, claims: 11 },
-  { month: 'Jun', reports: 22, claims: 14 },
-  { month: 'Jul', reports: 17, claims: 12 },
-  { month: 'Agu', reports: 26, claims: 18 },
-  { month: 'Sep', reports: 21, claims: 16 },
-  { month: 'Okt', reports: 24, claims: 20 },
-];
-
-const distribution = [
-  { label: 'Menunggu di Pos Satpam', count: 5, tone: 'warning' },
-  { label: 'Tersedia di Lemari', count: 18, tone: 'success' },
-  { label: 'Diklaim', count: 12, tone: 'info' },
-  { label: 'Didonasikan / Diarsipkan', count: 4, tone: 'muted' },
-];
-
-const batchItems = [
-  {
-    id: 'IT-0241',
-    name: 'Kunci motor Honda',
-    location: 'Pos Satpam Gedung A',
-    date: '14 Okt 2026',
-    status: 'Menunggu dipindahkan',
-  },
-  {
-    id: 'IT-0240',
-    name: 'Botol minum biru',
-    location: 'Pos Satpam Gedung B',
-    date: '13 Okt 2026',
-    status: 'Menunggu dipindahkan',
-  },
-  {
-    id: 'IT-0238',
-    name: 'Payung lipat hitam',
-    location: 'Pos Satpam Gedung A',
-    date: '12 Okt 2026',
-    status: 'Menunggu dipindahkan',
-  },
-];
+import { getDashboardSummary } from '../api/dashboardApi.js';
 
 export function DashboardPage() {
   const { notify } = useToast();
+  const [dashboard, setDashboard] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    getDashboardSummary()
+      .then((response) => setDashboard(response.data))
+      .catch((requestError) => setError(requestError.response?.data?.message || 'Dashboard tidak dapat dimuat.'));
+  }, []);
+
+  const itemSummary = dashboard?.items || {};
+  const distribution = [
+    { label: 'Menunggu di Pos Satpam', count: itemSummary.waiting_security_post || 0, tone: 'warning' },
+    { label: 'Tersedia di Lemari', count: itemSummary.in_display_case || 0, tone: 'success' },
+    { label: 'Diklaim', count: itemSummary.claimed || 0, tone: 'info' },
+    { label: 'Didonasikan / Diarsipkan', count: itemSummary.donated || 0, tone: 'muted' },
+  ];
 
   function notifyPreview() {
     notify('Ekspor laporan tersedia setelah integrasi backend.', 'info');
@@ -59,28 +37,28 @@ export function DashboardPage() {
             Pantau laporan barang, klaim, dan perpindahan barang di kampus.
           </p>
         </div>
-        <span className="admin-preview-label">Data contoh</span>
+        <span className="admin-preview-label">Data database</span>
       </header>
 
       <section className="dashboard-kpis" aria-label="Metrik utama">
         <KpiCard
           label="Total Laporan"
-          value="128"
-          detail="+12% vs bulan lalu"
+          value={itemSummary.total_items ?? '-'}
+          detail="Total barang tercatat"
         />
         <KpiCard
           label="Rasio Klaim Berhasil"
-          value="71%"
-          detail="91 dari 128 laporan"
+          value={dashboard?.claims?.success_rate_percentage ? `${dashboard.claims.success_rate_percentage}%` : '-'}
+          detail="Rasio klaim berhasil"
         />
         <KpiCard
           label="Rata-rata Waktu Serah-Terima"
-          value="2,4 hari"
-          detail="Dari klaim disetujui"
+          value={dashboard?.claims?.avg_handover_turnaround_days ?? '-'}
+          detail="Rata-rata pemrosesan"
         />
         <KpiCard
           label="Menunggu di Pos Satpam"
-          value="5"
+          value={itemSummary.waiting_security_post ?? '-'}
           detail="Perlu dipindah ke lemari"
         />
       </section>
@@ -90,7 +68,7 @@ export function DashboardPage() {
           <div className="admin-panel-heading">
             <div>
               <h2>Laporan &amp; Klaim per Bulan</h2>
-              <p>Perbandingan aktivitas Mei - Okt</p>
+              <p>Ringkasan bulanan belum disediakan oleh API dashboard.</p>
             </div>
           </div>
           <div
@@ -103,21 +81,21 @@ export function DashboardPage() {
               <span className="is-claims">Klaim</span>
             </div>
             <div className="dashboard-chart-grid">
-              {monthlyData.map(({ month, reports, claims }) => (
-                <div className="dashboard-chart-month" key={month}>
+              {distribution.map(({ label, count }) => (
+                <div className="dashboard-chart-month" key={label}>
                   <div className="dashboard-chart-bars">
                     <span
                       className="dashboard-chart-bar is-reports"
-                      style={{ height: `${(reports / 30) * 100}%` }}
-                      title={`${reports} laporan`}
+                      style={{ height: `${Math.min(count, 30) / 30 * 100}%` }}
+                      title={`${count} barang`}
                     />
                     <span
                       className="dashboard-chart-bar is-claims"
-                      style={{ height: `${(claims / 30) * 100}%` }}
-                      title={`${claims} klaim`}
+                      style={{ height: '0%' }}
+                      title="Data klaim bulanan tidak tersedia"
                     />
                   </div>
-                  <span className="dashboard-chart-month-label">{month}</span>
+                  <span className="dashboard-chart-month-label">{label}</span>
                 </div>
               ))}
             </div>
@@ -128,7 +106,7 @@ export function DashboardPage() {
           <div className="admin-panel-heading">
             <div>
               <h2>Distribusi Status Barang</h2>
-              <p>39 barang terdata</p>
+              <p>{itemSummary.total_items ?? 0} barang terdata</p>
             </div>
           </div>
           <div className="dashboard-distribution">
@@ -143,12 +121,12 @@ export function DashboardPage() {
                   role="meter"
                   aria-label={status.label}
                   aria-valuemin="0"
-                  aria-valuemax="39"
+                  aria-valuemax={itemSummary.total_items || 1}
                   aria-valuenow={status.count}
                 >
                   <span
                     className={`dashboard-progress-fill tone-${status.tone}`}
-                    style={{ width: `${(status.count / 39) * 100}%` }}
+                    style={{ width: `${((status.count / (itemSummary.total_items || 1)) * 100)}%` }}
                   />
                 </div>
               </div>
@@ -194,25 +172,13 @@ export function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {batchItems.map((item) => (
-                <tr key={item.id}>
-                  <td data-label="ID Barang">{item.id}</td>
-                  <td data-label="Nama Barang">{item.name}</td>
-                  <td data-label="Lokasi Penyimpanan">{item.location}</td>
-                  <td data-label="Tanggal Masuk">{item.date}</td>
-                  <td data-label="Status Batch">
-                    <span className="admin-status-pill tone-warning">
-                      {item.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              <tr>
+                <td colSpan="5">Daftar batch belum disediakan oleh API dashboard.</td>
+              </tr>
             </tbody>
           </table>
         </div>
-        <p className="admin-data-note">
-          Data dashboard ini bersifat ilustrasi dan belum terhubung ke backend.
-        </p>
+        {error && <p className="admin-data-note" role="alert">{error}</p>}
       </section>
     </div>
   );

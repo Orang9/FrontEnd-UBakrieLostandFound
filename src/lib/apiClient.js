@@ -11,7 +11,7 @@ apiClient.interceptors.request.use((config) => {
   const session = localStorage.getItem('ubakrie-lf-auth');
   if (session) {
     const { token } = JSON.parse(session);
-    if (token) config.headers.Authorization = `Bearer ${token}`;
+    if (token) config.headers.Authorization = 'Bearer ' + token;
   }
   return config;
 });

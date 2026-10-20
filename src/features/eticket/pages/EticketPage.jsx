@@ -2,30 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import {
-  getStoredClaims,
-  upsertPreviewClaim,
-} from '../../../lib/claimStorage.js';
+  getTicket,
+} from '../api/eticketApi.js';
 import { paths } from '../../../app/router/paths.js';
 
 const QR_VALIDITY_MS = 30 * 60 * 1000;
-
-function createPreviewToken() {
-  const bytes = window.crypto.getRandomValues(new Uint8Array(32));
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join(
-    '',
-  );
-}
-
-function withFreshPreviewQr(claim) {
-  return {
-    ...claim,
-    schedule: {
-      ...claim.schedule,
-      qrToken: createPreviewToken(),
-      qrGeneratedAt: new Date().toISOString(),
-    },
-  };
-}
 
 function formatCountdown(milliseconds) {
   const totalSeconds = Math.ceil(milliseconds / 1000);
@@ -42,47 +23,37 @@ export function EticketPage() {
   const [ticketReady, setTicketReady] = useState(false);
 
   useEffect(() => {
-    try {
-      const scheduledClaim = getStoredClaims().find(
-        (storedClaim) =>
-          storedClaim.schedule?.ticketId === ticketId &&
-          storedClaim.status === 'SCHEDULED',
-      );
-      setClaim(scheduledClaim ?? null);
-
-      if (scheduledClaim && !scheduledClaim.schedule.qrToken) {
-        const refreshedClaim = withFreshPreviewQr(scheduledClaim);
-        upsertPreviewClaim(refreshedClaim);
-        setClaim(refreshedClaim);
-      }
+    getTicket(ticketId).then((ticket) => {
+      const qr = ticket?.qr_token ?? ticket?.qrValue;
+      setClaim({
+        ...ticket,
+        id: ticket?.claim_id ?? ticketId,
+        item: ticket?.item ?? { name: ticket?.item_name ?? 'Barang' },
+        schedule: {
+          ...(ticket?.schedule ?? {}),
+          ticketId,
+          qrToken: qr,
+          qrGeneratedAt: ticket?.issued_at ?? ticket?.issuedAt ?? new Date().toISOString(),
+          date: ticket?.scheduled_date ?? ticket?.schedule?.date ?? '-',
+          time: ticket?.time ?? ticket?.schedule?.time ?? '-',
+        },
+      });
       setTicketReady(true);
-    } catch (error) {
+    }).catch((error) => {
       setTicketError(
         error instanceof Error
           ? error.message
           : 'E-Ticket preview gagal dimuat.',
       );
-    }
+      setTicketReady(true);
+    });
 
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, [ticketId]);
 
   function refreshQr() {
-    if (!claim) return;
-    try {
-      const refreshedClaim = withFreshPreviewQr(claim);
-      upsertPreviewClaim(refreshedClaim);
-      setClaim(refreshedClaim);
-      setNow(Date.now());
-      setTicketError('');
-    } catch (error) {
-      setTicketError(
-        error instanceof Error
-          ? error.message
-          : 'QR preview tidak dapat diperbarui.',
-      );
-    }
+    setTicketError('QR dikelola oleh backend dan tidak dapat diperbarui secara lokal.');
   }
 
   const expiresAt = claim

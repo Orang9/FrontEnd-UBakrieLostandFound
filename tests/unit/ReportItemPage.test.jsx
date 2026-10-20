@@ -20,23 +20,18 @@ function renderReport(initialEntry = '/report') {
 }
 
 describe('ReportItemPage', () => {
-  it('supports direct entry without an authenticated session', () => {
+  it('shows the found-item report form for direct entry', () => {
     renderReport('/report?type=lost');
 
     expect(
       screen.getByRole('heading', { name: 'Lapor Barang' }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Barang Hilang' }),
-    ).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByLabelText('Lokasi hilang')).toBeInTheDocument();
+    expect(screen.getByLabelText('Lokasi ditemukan')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Barang Hilang' })).not.toBeInTheDocument();
   });
 
-  it('switches report type and shows blind-listing notice for sensitive items', () => {
+  it('shows the blind-listing notice for sensitive items', () => {
     renderReport();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Barang Hilang' }));
-    expect(screen.getByLabelText('Lokasi hilang')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('radio', { name: 'Sensitif' }));
     expect(screen.getByText('Blind Listing aktif')).toBeInTheDocument();

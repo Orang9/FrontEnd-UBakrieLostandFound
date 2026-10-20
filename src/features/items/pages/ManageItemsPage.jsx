@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Backpack,
   LockKeyhole,
@@ -9,6 +9,12 @@ import {
 } from 'lucide-react';
 import { useToast } from '../../../app/providers/ToastProvider.jsx';
 import { Button } from '../../../components/ui/Button.jsx';
+import {
+  approveAdminItem,
+  getAdminItems,
+  rejectAdminItem,
+  restoreAdminItem,
+} from '../../admin/api/adminApi.js';
 
 const initialReports = [
   {
@@ -76,13 +82,6 @@ const initialReports = [
   },
 ];
 
-const statusFilters = [
-  { id: 'Semua', count: 24 },
-  { id: 'Pending', count: 5 },
-  { id: 'Diterima', count: 15 },
-  { id: 'Ditolak', count: 4 },
-];
-
 const rejectionReasons = [
   'Laporan iseng / tidak valid',
   'Informasi laporan tidak lengkap',
@@ -106,10 +105,59 @@ function currentRejectionTime() {
 }
 
 export function ManageItemsPage() {
-  const [reports, setReports] = useState(initialReports);
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [activeFilter, setActiveFilter] = useState('Pending');
   const [rejectingId, setRejectingId] = useState(null);
   const { notify } = useToast();
+
+  async function refreshReports() {
+    setLoading(true);
+    try {
+      const response = await getAdminItems({ review_status: 'all' });
+      const items = response.data || [];
+      setReports(items.map((item) => ({
+        id: item.item_id,
+        type: item.report_type === 'lost' ? 'Hilang' : 'Temuan',
+        name: item.name,
+        category: item.is_sensitive ? 'Sensitif' : 'Umum',
+        categoryDetail: item.category_name || '-',
+        location: item.found_location || item.last_seen_location || '-',
+        date: item.found_date || item.created_at || '-',
+        reporter: item.reporter_name || item.finder_name || item.owner_name || '-',
+        nim: item.reporter_nim || item.finder_nim || item.owner_nim || '-',
+        description: item.description || '',
+        icon: PackageSearch,
+        status: item.report_review_status === 'rejected'
+          ? 'Ditolak'
+          : item.report_review_status === 'accepted'
+            ? 'Diterima'
+            : 'Pending',
+        backendStatus: item.report_review_status,
+        rejection: item.rejection_reason ? {
+          reason: item.rejection_reason,
+          note: item.rejection_note,
+          by: item.rejected_by || '-',
+          at: item.rejected_at || '-',
+        } : undefined,
+      })));
+      setError('');
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Data laporan tidak dapat dimuat.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { refreshReports(); }, []);
+
+  const statusFilters = [
+    { id: 'Semua', count: reports.length },
+    { id: 'Pending', count: reports.filter((report) => report.status === 'Pending').length },
+    { id: 'Diterima', count: reports.filter((report) => report.status === 'Diterima').length },
+    { id: 'Ditolak', count: reports.filter((report) => report.status === 'Ditolak').length },
+  ];
 
   const visibleReports = useMemo(
     () =>
@@ -122,16 +170,14 @@ export function ManageItemsPage() {
     (filter) => filter.id === activeFilter,
   );
 
-  function acceptReport(reportId) {
-    setReports((currentReports) =>
-      currentReports.map((report) =>
-        report.id === reportId ? { ...report, status: 'Diterima' } : report,
-      ),
-    );
-    notify(
-      'Laporan diterima di preview. Pembaruan katalog memerlukan backend.',
-      'info',
-    );
+  async function acceptReport(reportId) {
+    try {
+      await approveAdminItem(reportId);
+      notify('Laporan berhasil diterima.', 'success');
+      await refreshReports();
+    } catch (requestError) {
+      notify(requestError.response?.data?.message || 'Laporan gagal diterima.', 'error');
+    }
   }
 
   function confirmRejection(event, reportId) {
@@ -144,49 +190,29 @@ export function ManageItemsPage() {
       return;
     }
 
-    setReports((currentReports) =>
-      currentReports.map((report) =>
-        report.id === reportId
-          ? {
-              ...report,
-              status: 'Ditolak',
-              rejection: {
-                reason,
-                note,
-                by: 'admin-bem',
-                at: currentRejectionTime(),
-              },
-            }
-          : report,
-      ),
-    );
-    setRejectingId(null);
-    notify(
-      'Penolakan dicatat di preview. Audit Trail dan email belum terhubung ke backend.',
-      'info',
-    );
+    rejectAdminItem(reportId, { reason, note })
+      .then(() => {
+        setRejectingId(null);
+        notify('Laporan berhasil ditolak.', 'success');
+        return refreshReports();
+      })
+      .catch((requestError) => notify(
+        requestError.response?.data?.message || 'Laporan gagal ditolak.',
+        'error',
+      ));
   }
 
   function reviewAgain(reportId) {
-    setReports((currentReports) =>
-      currentReports.map((report) =>
-        report.id === reportId
-          ? { ...report, status: 'Pending', rejection: undefined }
-          : report,
-      ),
-    );
-    setActiveFilter('Pending');
-    notify('Laporan dikembalikan ke status Pending pada preview.', 'info');
-  }
-
-  function refreshReports() {
-    setReports(initialReports);
-    setActiveFilter('Pending');
-    setRejectingId(null);
-    notify(
-      'Data contoh dipulihkan. Refresh dari server memerlukan backend.',
-      'info',
-    );
+    restoreAdminItem(reportId)
+      .then(() => {
+        setActiveFilter('Pending');
+        notify('Laporan dikembalikan untuk ditinjau.', 'success');
+        return refreshReports();
+      })
+      .catch((requestError) => notify(
+        requestError.response?.data?.message || 'Laporan gagal dipulihkan.',
+        'error',
+      ));
   }
 
   return (
@@ -199,7 +225,7 @@ export function ManageItemsPage() {
             Tinjau laporan barang sebelum diterima ke katalog atau ditolak.
           </p>
         </div>
-        <span className="admin-intake-month">Oktober 2026</span>
+        <span className="admin-intake-month">Data database</span>
       </header>
 
       <section className="admin-items-toolbar" aria-label="Filter laporan">
@@ -244,7 +270,7 @@ export function ManageItemsPage() {
         role="tabpanel"
         aria-labelledby={`admin-items-filter-${activeFilter.toLowerCase()}`}
       >
-        {visibleReports.length ? (
+        {loading ? <section className="admin-panel admin-item-empty"><p>Memuat laporan...</p></section> : error ? <section className="admin-panel admin-item-empty"><p role="alert">{error}</p></section> : visibleReports.length ? (
           visibleReports.map((report) => {
             const ThumbnailIcon = report.icon;
             const isRejecting = rejectingId === report.id;
@@ -417,8 +443,7 @@ export function ManageItemsPage() {
           <section className="admin-panel admin-item-empty">
             <h2>Tidak ada laporan {activeFilter.toLowerCase()}</h2>
             <p>
-              Data contoh untuk status ini belum tersedia. Coba pilih filter
-              lainnya atau pulihkan data contoh.
+              Belum ada laporan dengan status ini.
             </p>
           </section>
         )}
@@ -430,8 +455,7 @@ export function ManageItemsPage() {
         {activeFilter === 'Pending' &&
           ' Laporan Pending perlu divalidasi Admin BEM sebelum tampil di katalog.'}
         <span>
-          Data contoh; perubahan, notifikasi email, katalog, dan Audit Trail
-          belum tersimpan ke backend.
+          Data ditampilkan dari backend dan perubahan disimpan ke database.
         </span>
       </footer>
     </div>

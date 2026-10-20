@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   ClipboardList,
   Boxes,
@@ -103,6 +103,10 @@ export function AdminLayout() {
         className={`admin-sidebar${menuOpen ? ' is-open' : ''}`}
         id="admin-navigation-drawer"
       >
+        <Link className="admin-brand" to={paths.catalog} onClick={closeMenu}>
+          <span className="brand-mark" aria-hidden="true">UB</span>
+          <span>UBakrie Lost &amp; Found</span>
+        </Link>
         {renderNavigation('admin-sidebar-nav')}
       </aside>
       <main className="admin-content">

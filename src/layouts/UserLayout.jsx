@@ -24,6 +24,7 @@ const navigation = [
 
 export function UserLayout() {
   const { isAuthenticated, user, logout } = useAuth();
+  const isAdmin = user?.role === 'ADMIN_BEM';
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const isHome = pathname === paths.home;
@@ -82,6 +83,16 @@ export function UserLayout() {
               {label}
             </NavLink>
           ))}
+          {isAdmin && (
+            <>
+              <NavLink className="topbar-nav-link" to={paths.admin.dashboard}>
+                Dashboard Admin
+              </NavLink>
+              <NavLink className="topbar-nav-link" to={paths.admin.items}>
+                Barang
+              </NavLink>
+            </>
+          )}
         </nav>
         <div className="topbar-account">
           {isAuthenticated ? (
