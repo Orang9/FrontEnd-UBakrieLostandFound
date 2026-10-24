@@ -1,13 +1,57 @@
 import { useEffect, useState } from 'react';
 import { useToast } from '../../../app/providers/ToastProvider.jsx';
-import { createAdminSlot, getAdminSlots, updateAdminSlot } from '../api/schedulingApi.js';
+import {
+  createAdminSlot,
+  getAdminSlots,
+  updateAdminSlot,
+} from '../api/schedulingApi.js';
+import { getAdminClaims } from '../../admin/api/adminApi.js';
 
 const dates = [
-  { id: '12', weekday: 'Sen', full: 'Senin, 12 Okt' },
-  { id: '13', weekday: 'Sel', full: 'Selasa, 13 Okt' },
-  { id: '14', weekday: 'Rab', full: 'Rabu, 14 Okt' },
-  { id: '15', weekday: 'Kam', full: 'Kamis, 15 Okt' },
-  { id: '16', weekday: 'Jum', full: 'Jumat, 16 Okt' },
+  { id: '12', weekday: 'Sen', full: 'Senin, 12 Okt', date: '2026-10-12', day: 'Monday' },
+  { id: '13', weekday: 'Sel', full: 'Selasa, 13 Okt', date: '2026-10-13', day: 'Tuesday' },
+  { id: '14', weekday: 'Rab', full: 'Rabu, 14 Okt', date: '2026-10-14', day: 'Wednesday' },
+  { id: '15', weekday: 'Kam', full: 'Kamis, 15 Okt', date: '2026-10-15', day: 'Thursday' },
+  { id: '16', weekday: 'Jum', full: 'Jumat, 16 Okt', date: '2026-10-16', day: 'Friday' },
+];
+
+const dayToDateId = {
+  Monday: '12',
+  Tuesday: '13',
+  Wednesday: '14',
+  Thursday: '15',
+  Friday: '16',
+};
+
+const initialSlots = [
+  {
+    id: 'slot-1',
+    date: '14',
+    time: '09.00 - 10.00',
+    status: 'Tersedia',
+    applicant: '-',
+  },
+  {
+    id: 'slot-2',
+    date: '14',
+    time: '10.00 - 11.00',
+    status: 'Penuh',
+    applicant: 'Raka Pratama',
+  },
+  {
+    id: 'slot-3',
+    date: '14',
+    time: '11.00 - 12.00',
+    status: 'Terjadwal',
+    applicant: 'Najwa Naela Fawwaz',
+  },
+  {
+    id: 'slot-4',
+    date: '14',
+    time: '13.00 - 14.00',
+    status: 'Tersedia',
+    applicant: '-',
+  },
 ];
 
 function statusTone(status) {
@@ -19,8 +63,8 @@ function statusTone(status) {
 
 export function AdminSchedulingPage() {
   const [selectedDate, setSelectedDate] = useState('14');
-  const [slots, setSlots] = useState([]);
-  const [error, setError] = useState('');
+  const [slots, setSlots] = useState(initialSlots);
+  const [isLive, setIsLive] = useState(false);
   const [activeView, setActiveView] = useState('schedule');
   const [newSlot, setNewSlot] = useState({
     date: '2026-10-14',
@@ -28,29 +72,102 @@ export function AdminSchedulingPage() {
     end: '10:00',
   });
   const { notify } = useToast();
-  const selectedDateInfo = dates.find((date) => date.id === selectedDate);
+  const selectedDateInfo =
+    dates.find((date) => date.id === selectedDate) ?? dates[2];
   const visibleSlots = slots.filter((slot) => slot.date === selectedDate);
 
   async function loadSlots() {
     try {
-      const response = await getAdminSlots();
-      setSlots((response.data || []).map((slot) => ({
-        id: slot.slot_id,
-        date: String(slot.slot_date || '').slice(-2),
-        time: `${String(slot.start_time).slice(0, 5).replace(':', '.')} - ${String(slot.end_time).slice(0, 5).replace(':', '.')}`,
-        status: slot.is_active ? (slot.booked_count >= slot.max_quota ? 'Penuh' : 'Tersedia') : 'Ditutup',
-        applicant: slot.claimant_name || '-',
-        isActive: Boolean(slot.is_active),
-      })));
-      setError('');
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Slot tidak dapat dimuat.');
+      const [slotsRes, claimsRes] = await Promise.allSettled([
+        getAdminSlots(),
+        getAdminClaims('all'),
+      ]);
+
+      if (slotsRes.status === 'fulfilled' && slotsRes.value?.data) {
+        const backendSlots = slotsRes.value.data;
+        const backendClaims =
+          claimsRes.status === 'fulfilled' && Array.isArray(claimsRes.value?.data)
+            ? claimsRes.value.data
+            : [];
+
+        // Map claim bookings by slot_id and dateId
+        const scheduledMap = new Map();
+        for (const claim of backendClaims) {
+          if (
+            ['scheduled', 'verified', 'claimed'].includes(claim.status) &&
+            claim.scheduled_slot_id
+          ) {
+            const dateStr = claim.scheduled_date
+              ? String(claim.scheduled_date).slice(0, 10)
+              : '';
+            const dateId = dateStr ? dateStr.slice(-2) : '';
+            const key = `${claim.scheduled_slot_id}-${dateId}`;
+            scheduledMap.set(key, claim.claimer_name || 'Pemohon');
+          }
+        }
+
+        const mapped = [];
+        for (const slot of backendSlots) {
+          const startTime = String(slot.start_time || '').slice(0, 5).replace(':', '.');
+          const endTime = String(slot.end_time || '').slice(0, 5).replace(':', '.');
+          const timeFormatted = `${startTime} - ${endTime}`;
+          const isClosed = !slot.is_active;
+
+          if (slot.slot_date) {
+            const slotDateStr = String(slot.slot_date).slice(0, 10);
+            const dateId = slotDateStr.slice(-2);
+            const scheduledApplicant = scheduledMap.get(`${slot.slot_id}-${dateId}`);
+            let status = 'Tersedia';
+            if (isClosed) status = 'Ditutup';
+            else if (scheduledApplicant) status = 'Terjadwal';
+            else if (slot.booked_count >= slot.max_quota) status = 'Penuh';
+
+            mapped.push({
+              id: String(slot.slot_id),
+              rawId: slot.slot_id,
+              date: dateId,
+              time: timeFormatted,
+              status,
+              applicant: scheduledApplicant || slot.claimant_name || '-',
+              isActive: Boolean(slot.is_active),
+            });
+          } else if (slot.day_of_week) {
+            const dateId = dayToDateId[slot.day_of_week];
+            if (dateId) {
+              const scheduledApplicant = scheduledMap.get(`${slot.slot_id}-${dateId}`);
+              let status = 'Tersedia';
+              if (isClosed) status = 'Ditutup';
+              else if (scheduledApplicant) status = 'Terjadwal';
+              else if (slot.booked_count >= slot.max_quota) status = 'Penuh';
+
+              mapped.push({
+                id: `${slot.slot_id}-${dateId}`,
+                rawId: slot.slot_id,
+                date: dateId,
+                time: timeFormatted,
+                status,
+                applicant: scheduledApplicant || slot.claimant_name || '-',
+                isActive: Boolean(slot.is_active),
+              });
+            }
+          }
+        }
+
+        if (mapped.length > 0) {
+          setSlots(mapped);
+          setIsLive(true);
+        }
+      }
+    } catch {
+      // Keep initialSlots if loading fails
     }
   }
 
-  useEffect(() => { loadSlots(); }, []);
+  useEffect(() => {
+    loadSlots();
+  }, []);
 
-  function addSlot(event) {
+  async function addSlot(event) {
     event.preventDefault();
     const dateId = newSlot.date.slice(-2);
     if (!dates.some((date) => date.id === dateId)) {
@@ -68,24 +185,80 @@ export function AdminSchedulingPage() {
       );
       return;
     }
-    createAdminSlot({ date: newSlot.date, start_time: newSlot.start, end_time: newSlot.end })
-      .then(() => {
-        setSelectedDate(dateId);
-        setActiveView('schedule');
-        notify('Slot berhasil ditambahkan.', 'success');
-        return loadSlots();
-      })
-      .catch((requestError) => notify(requestError.response?.data?.message || 'Slot gagal ditambahkan.', 'error'));
+
+    try {
+      await createAdminSlot({
+        date: newSlot.date,
+        start_time: newSlot.start,
+        end_time: newSlot.end,
+        max_quota: 5,
+        location: 'Lemari Kaca Lost & Found',
+      });
+      setSelectedDate(dateId);
+      setActiveView('schedule');
+      notify('Slot berhasil ditambahkan.', 'success');
+      await loadSlots();
+      return;
+    } catch (requestError) {
+      const msg = requestError.response?.data?.message;
+      if (msg) {
+        notify(msg, 'error');
+        return;
+      }
+    }
+
+    // Fallback if offline/preview mode
+    setSlots((current) => [
+      ...current,
+      {
+        id: `slot-${Date.now()}`,
+        date: dateId,
+        time: `${newSlot.start.replace(':', '.')} - ${newSlot.end.replace(':', '.')}`,
+        status: 'Tersedia',
+        applicant: '-',
+      },
+    ]);
+    setSelectedDate(dateId);
+    setActiveView('schedule');
+    notify('Slot contoh ditambahkan pada tampilan ini.', 'success');
   }
 
-  function toggleSlot(slot) {
+  async function toggleSlot(slot) {
     if (slot.status === 'Terjadwal') {
       notify('Slot terjadwal tidak dapat ditutup pada preview.', 'info');
       return;
     }
-    updateAdminSlot(slot.id, { is_active: slot.status === 'Ditutup' })
-      .then(() => loadSlots())
-      .catch((requestError) => notify(requestError.response?.data?.message || 'Status slot gagal diubah.', 'error'));
+
+    if (slot.rawId) {
+      try {
+        const nextIsActive = slot.status === 'Ditutup' ? 1 : 0;
+        await updateAdminSlot(slot.rawId, { is_active: nextIsActive });
+        notify(
+          `Slot berhasil ${nextIsActive ? 'dibuka' : 'ditutup'}.`,
+          'success',
+        );
+        await loadSlots();
+        return;
+      } catch (requestError) {
+        notify(
+          requestError.response?.data?.message || 'Status slot gagal diubah.',
+          'error',
+        );
+        return;
+      }
+    }
+
+    // Fallback local update
+    setSlots((current) =>
+      current.map((item) =>
+        item.id === slot.id
+          ? {
+              ...item,
+              status: item.status === 'Ditutup' ? 'Tersedia' : 'Ditutup',
+            }
+          : item,
+      ),
+    );
   }
 
   function moveSlot(slot) {
@@ -105,7 +278,9 @@ export function AdminSchedulingPage() {
             Atur ketersediaan dan kapasitas jadwal pengambilan barang.
           </p>
         </div>
-        <span className="admin-preview-label">Data database</span>
+        <span className="admin-preview-label">
+          {isLive ? 'Data database' : 'Data contoh'}
+        </span>
       </header>
 
       <div
@@ -167,7 +342,7 @@ export function AdminSchedulingPage() {
             ))}
           </div>
 
-          {error ? <p className="admin-empty-note" role="alert">{error}</p> : visibleSlots.length ? (
+          {visibleSlots.length ? (
             <>
               <div className="admin-table-wrap admin-slot-table-wrap">
                 <table className="admin-table admin-slot-table">
@@ -323,7 +498,9 @@ export function AdminSchedulingPage() {
             <p>Senin - Jumat, 09.00 - 15.00 WIB</p>
           </aside>
           <p className="admin-data-note">
-            Perubahan slot hanya disimpan sementara di halaman ini.
+            {isLive
+              ? 'Perubahan slot disimpan ke database.'
+              : 'Perubahan slot hanya disimpan sementara di halaman ini.'}
           </p>
         </section>
       </div>
