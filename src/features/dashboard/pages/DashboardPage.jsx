@@ -17,8 +17,8 @@ export function DashboardPage() {
 
   const itemSummary = dashboard?.items || {};
   const distribution = [
-    { label: 'Menunggu di Pos Satpam', count: itemSummary.waiting_security_post || 0, tone: 'warning' },
-    { label: 'Tersedia di Lemari', count: itemSummary.in_display_case || 0, tone: 'success' },
+    { label: 'Laporan aktif', count: itemSummary.active_lost || 0, tone: 'info' },
+    { label: 'Tersedia', count: itemSummary.available_found || 0, tone: 'success' },
     { label: 'Diklaim', count: itemSummary.claimed || 0, tone: 'info' },
     { label: 'Didonasikan / Diarsipkan', count: itemSummary.donated || 0, tone: 'muted' },
   ];
@@ -57,9 +57,9 @@ export function DashboardPage() {
           detail="Rata-rata pemrosesan"
         />
         <KpiCard
-          label="Menunggu di Pos Satpam"
-          value={itemSummary.waiting_security_post ?? '-'}
-          detail="Perlu dipindah ke lemari"
+          label="Barang tersedia"
+          value={itemSummary.available_found ?? '-'}
+          detail="Barang temuan siap diklaim"
         />
       </section>
 

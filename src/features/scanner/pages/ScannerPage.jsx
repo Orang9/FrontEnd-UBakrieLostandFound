@@ -13,6 +13,7 @@ import {
 } from '../lib/previewTicketValidation.js';
 import { validateTicket } from '../api/scannerApi.js';
 import { createScanner } from '../components/ScannerAdapter.jsx';
+import { formatShortDate } from '../../../lib/format.js';
 
 const scannerConfig = {
   fps: 10,
@@ -41,6 +42,11 @@ const failureCopy = {
   },
 };
 
+function formatScheduleDate(value) {
+  if (/^\d{4}-\d{2}-\d{2}/.test(value)) return formatShortDate(value);
+  return value.replace(/,\s*/, ' ');
+}
+
 function ClaimSummary({ claim, handoverComplete }) {
   const details = [
     ['Barang', claim.item.name],
@@ -51,7 +57,7 @@ function ClaimSummary({ claim, handoverComplete }) {
     ],
     [
       'Slot',
-      `${claim.schedule.date.replace(', 2026', '')} - ${claim.schedule.time}`,
+      `${formatScheduleDate(claim.schedule.date)} - ${claim.schedule.time}`,
     ],
     [
       'Status klaim',
@@ -123,7 +129,7 @@ export function ScannerPage() {
       try {
         recordPreviewAudit(
           `TICKET_VALIDATION_${result.reason}`,
-          user?.id ?? user?.email ?? 'ADMIN_BEM_PREVIEW',
+          user?.id ?? user?.email ?? 'Admin_BEM_PREVIEW',
           result.claim?.id,
         );
       } catch (error) {
@@ -238,7 +244,7 @@ export function ScannerPage() {
     try {
       const result = confirmPreviewHandover(
         validation,
-        user?.id ?? user?.email ?? 'ADMIN_BEM_PREVIEW',
+        user?.id ?? user?.email ?? 'Admin_BEM_PREVIEW',
       );
       if (!result.valid) {
         setValidation(result);

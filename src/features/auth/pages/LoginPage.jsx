@@ -33,7 +33,7 @@ export function LoginPage() {
   if (isAuthenticated) {
     return (
       <Navigate
-        to={user?.role === 'ADMIN_BEM' ? paths.admin.dashboard : paths.home}
+        to={user?.role === 'Admin_BEM' ? paths.admin.dashboard : paths.home}
         replace
       />
     );
@@ -49,7 +49,7 @@ export function LoginPage() {
 
       const destination = location.state?.from;
       const fallback =
-        session.user.role === 'ADMIN_BEM' ? paths.admin.dashboard : paths.home;
+        session.user.role === 'Admin_BEM' ? paths.admin.dashboard : paths.home;
       navigate(
         destination
           ? `${destination.pathname}${destination.search ?? ''}${destination.hash ?? ''}`

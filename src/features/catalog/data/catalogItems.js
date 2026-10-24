@@ -6,7 +6,7 @@ export const catalogItems = [
     name: 'Kunci motor Honda',
     location: 'Parkir B',
     date: '10 Okt',
-    status: ITEM_STATUS.WAITING_AT_SECURITY,
+    status: ITEM_STATUS.ACTIVE,
     type: 'Temuan',
     category: 'Umum',
     icon: 'key',

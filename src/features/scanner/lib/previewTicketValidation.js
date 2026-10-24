@@ -96,7 +96,7 @@ export function recordPreviewAudit(eventType, actorId, claimId) {
     throw new Error('Stored preview audit history has an invalid format.');
   }
   events.unshift({
-    actor_id: actorId || 'ADMIN_BEM_PREVIEW',
+    actor_id: actorId || 'Admin_BEM_PREVIEW',
     event_type: eventType,
     claim_id: claimId ?? null,
     ip: null,

@@ -3,8 +3,8 @@ import { paths } from '../../../app/router/paths.js';
 import { appInfo } from '../../../config/appInfo.js';
 
 const statusItems = [
-  ['Menunggu di Pos Satpam', 'Dititipkan ke Satpam, dicatat Admin BEM', 'waiting'],
-  ['Tersedia di Lemari', 'Dipindah ke lemari kaca BEM', 'available'],
+  ['Menunggu tinjauan', 'Laporan sedang diperiksa Admin BEM', 'waiting'],
+  ['Tersedia', 'Barang temuan dapat diajukan klaim', 'available'],
   ['Terjadwal', 'Slot pengambilan sudah dipilih', 'scheduled'],
   ['Claimed', 'Diserahkan setelah QR divalidasi', 'claimed'],
 ];
@@ -24,10 +24,9 @@ const processCards = [
     title: 'Penemuan Barang',
     accent: 'found',
     steps: [
-      ['Amankan barang', 'Jangan biarkan barang tertinggal hilang atau disalahgunakan.'],
-      ['Serahkan ke Pos Satpam', 'Titipkan barang secara fisik di Pos Satpam.'],
-      ['Dicatat Admin BEM', 'Barang tampil di katalog pada hari yang sama.'],
-      ['Pindah ke lemari kaca', 'Admin BEM memindahkan barang tiap minggu.'],
+      ['Serahkan untuk dicatat', 'Titipkan barang kepada petugas atau Admin BEM.'],
+      ['Tinjauan Admin BEM', 'Admin memeriksa laporan dan detail barang.'],
+      ['Tersedia di katalog', 'Setelah diterima, barang langsung dapat diajukan klaim.'],
     ],
   },
   {

@@ -175,7 +175,9 @@ export function ReviewClaimsPage() {
         category: claim.is_sensitive ? 'Sensitif' : 'Umum',
         status: claim.status === 'verified' ? 'APPROVED' : claim.status.toUpperCase(),
         icon: 'backpack',
-        questions: [['Jawaban verifikasi', claim.challange_answer || '-']],
+        questions: claim.verification_answers?.length
+          ? claim.verification_answers.map(({ question, answer }) => [question, answer])
+          : [['Jawaban verifikasi', claim.challange_answer || '-']],
         evidence: claim.has_evidence ? 'Bukti terlampir' : null,
       }));
       setClaims(values);
@@ -190,7 +192,7 @@ export function ReviewClaimsPage() {
 
   const filteredClaims = useMemo(
     () => claims.filter((claim) => claim.status === activeTab),
-    [activeTab],
+    [activeTab, claims],
   );
 
   function changeTab(status) {

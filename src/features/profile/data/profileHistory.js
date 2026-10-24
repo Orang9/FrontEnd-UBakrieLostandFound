@@ -65,7 +65,7 @@ export const reportHistory = [
       category: 'Sensitif',
     },
     type: 'Temuan',
-    status: 'WAITING_AT_SECURITY',
+    status: 'AVAILABLE',
     date: '9 Okt',
   },
   {

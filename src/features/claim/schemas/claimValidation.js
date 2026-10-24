@@ -3,12 +3,12 @@ import {
   MAX_PHOTO_SIZE_BYTES,
 } from '../../../constants/limits.js';
 
-export function validateClaimAnswers(answers) {
-  if (!Array.isArray(answers) || answers.length !== 2) {
-    return 'Jawab kedua pertanyaan verifikasi.';
+export function validateClaimAnswers(answers, expectedCount = 2) {
+  if (!Array.isArray(answers) || answers.length !== expectedCount) {
+    return `Jawab semua ${expectedCount} pertanyaan verifikasi.`;
   }
   if (answers.some((answer) => typeof answer !== 'string' || !answer.trim())) {
-    return 'Kedua jawaban verifikasi wajib diisi.';
+    return 'Semua jawaban verifikasi wajib diisi.';
   }
   return true;
 }

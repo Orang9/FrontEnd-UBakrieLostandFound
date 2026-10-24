@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '../../../components/ui/Button.jsx';
 import { useToast } from '../../../app/providers/ToastProvider.jsx';
+import { formatShortDate } from '../../../lib/format.js';
 import {
   ACCEPTED_PHOTO_TYPES,
   MAX_PHOTO_SIZE_BYTES,
@@ -61,9 +62,6 @@ function formatTime(value) {
 
 export function IntakePage() {
   const [items, setItems] = useState(initialItems);
-  const [selectedIds, setSelectedIds] = useState(
-    () => new Set(initialItems.map(({ id }) => id)),
-  );
   const [activeTab, setActiveTab] = useState('daily');
   const [category, setCategory] = useState('Umum');
   const [photoName, setPhotoName] = useState('');
@@ -96,16 +94,12 @@ export function IntakePage() {
       id: `intake-${Date.now()}`,
       name: String(formData.get('name')).trim(),
       location: String(formData.get('location')).trim(),
-      date: new Intl.DateTimeFormat('id-ID', {
-        day: 'numeric',
-        month: 'short',
-      }).format(new Date()),
+      date: formatShortDate(new Date()),
       time: formatTime(String(formData.get('time'))),
       category,
     };
 
     setItems((currentItems) => [...currentItems, newItem]);
-    setSelectedIds((currentIds) => new Set([...currentIds, newItem.id]));
     event.currentTarget.reset();
     setCategory('Umum');
     setPhotoName('');
@@ -116,29 +110,7 @@ export function IntakePage() {
     );
   }
 
-  function toggleItem(id) {
-    setSelectedIds((currentIds) => {
-      const nextIds = new Set(currentIds);
-      if (nextIds.has(id)) nextIds.delete(id);
-      else nextIds.add(id);
-      return nextIds;
-    });
-  }
-
-  function moveSelectedItems() {
-    if (selectedIds.size === 0) return;
-    setItems((currentItems) =>
-      currentItems.filter((item) => !selectedIds.has(item.id)),
-    );
-    setSelectedIds(new Set());
-    notify(
-      'Pemindahan berhasil di preview. Status backend belum diperbarui.',
-      'info',
-    );
-  }
-
   const visibleCount = items.length;
-  const selectedCount = selectedIds.size;
 
   return (
     <div className="admin-page admin-intake-page">
@@ -147,7 +119,7 @@ export function IntakePage() {
           <p className="admin-eyebrow">Penerimaan barang</p>
           <h1>Intake Satpam</h1>
           <p className="admin-page-description">
-            Catat barang temuan harian dan pindahkan batch ke Lemari Kaca BEM.
+            Catat barang temuan harian; setelah dicatat dan diterima, statusnya Tersedia.
           </p>
         </div>
         <span className="admin-intake-month">{currentMonth}</span>
@@ -174,7 +146,7 @@ export function IntakePage() {
           aria-controls="intake-batch-panel"
           onClick={() => setActiveTab('batch')}
         >
-          Batch Satpam ({visibleCount})
+          Tercatat ({visibleCount})
         </button>
       </div>
 
@@ -261,7 +233,7 @@ export function IntakePage() {
               )}
             </div>
             <p className="intake-status-note">
-              Status awal: Menunggu di Pos Satpam (tampil di katalog hari ini)
+              Status awal: Tersedia setelah laporan diterima Admin BEM.
             </p>
             <Button className="intake-submit-button" type="submit">
               Simpan &amp; Tampilkan di Katalog
@@ -282,24 +254,13 @@ export function IntakePage() {
           <div className="admin-panel-heading">
             <div>
               <h2>Batch Mingguan</h2>
-              <p>{visibleCount} barang menunggu di Pos Satpam</p>
+              <p>{visibleCount} barang tercatat</p>
             </div>
           </div>
           {items.length ? (
             <ul className="intake-item-list">
               {items.map((item) => (
                 <li className="intake-item" key={item.id}>
-                  <label
-                    className="intake-item-checkbox"
-                    aria-label={`Pilih ${item.name}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(item.id)}
-                      onChange={() => toggleItem(item.id)}
-                    />
-                    <span aria-hidden="true" />
-                  </label>
                   <div className="intake-item-details">
                     <strong>{item.name}</strong>
                     <span>
@@ -316,20 +277,11 @@ export function IntakePage() {
             </ul>
           ) : (
             <p className="admin-empty-note">
-              Tidak ada barang yang menunggu dipindahkan.
+              Belum ada barang yang tercatat.
             </p>
           )}
-          <Button
-            className="intake-move-button"
-            type="button"
-            disabled={selectedCount === 0}
-            onClick={moveSelectedItems}
-          >
-            Pindahkan ke Lemari Kaca
-          </Button>
           <p className="intake-helper-text">
-            Status berubah menjadi Tersedia di Lemari, lalu pemohon dapat
-            mengajukan klaim.
+            Barang temuan dapat diklaim setelah laporan diterima Admin BEM.
           </p>
         </section>
       </div>

@@ -1,9 +1,17 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ToastProvider } from '../../src/app/providers/ToastProvider.jsx';
 import { ReportItemPage } from '../../src/features/report-item/index.js';
 import { validateReportPhoto } from '../../src/features/report-item/schemas/reportItemValidation.js';
+
+vi.mock('../../src/features/report-item/api/reportItemApi.js', () => ({
+  createItemReport: vi.fn(),
+}));
+
+import { createItemReport } from '../../src/features/report-item/api/reportItemApi.js';
 
 afterEach(cleanup);
 
@@ -26,8 +34,49 @@ describe('ReportItemPage', () => {
     expect(
       screen.getByRole('heading', { name: 'Lapor Barang' }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText('Lokasi ditemukan')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Barang Hilang' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Lokasi hilang')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Barang Hilang' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
+  it('sends the selected report type to the reporting API', async () => {
+    const user = userEvent.setup();
+    createItemReport.mockResolvedValue({ item_id: 10 });
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: vi.fn(() => 'blob:report-test'),
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: vi.fn(),
+    });
+    renderReport();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Barang Hilang' }));
+    fireEvent.change(screen.getByLabelText('Nama barang'), {
+      target: { value: 'Dompet hitam' },
+    });
+    fireEvent.change(screen.getByLabelText('Lokasi hilang'), {
+      target: { value: 'Kantin gedung A' },
+    });
+    fireEvent.change(screen.getByLabelText('Tanggal'), {
+      target: { value: '2026-10-24' },
+    });
+    fireEvent.change(screen.getByLabelText('Waktu'), {
+      target: { value: '12:30' },
+    });
+    await user.upload(
+      screen.getByLabelText('Tambah foto barang'),
+      new File(['image'], 'dompet.png', { type: 'image/png' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Kirim Laporan' }));
+
+    await waitFor(() => expect(createItemReport).toHaveBeenCalledTimes(1));
+    const payload = createItemReport.mock.calls[0][0];
+    expect(payload.get('type')).toBe('lost');
+    expect(payload.get('location')).toBe('Kantin gedung A');
   });
 
   it('shows the blind-listing notice for sensitive items', () => {

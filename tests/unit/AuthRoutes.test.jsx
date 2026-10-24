@@ -25,7 +25,7 @@ function renderProtectedPath(path, session) {
             <Route path="/private" element={<p>Private page</p>} />
           </Route>
           <Route element={<ProtectedRoute />}>
-            <Route element={<RoleRoute role="ADMIN_BEM" />}>
+            <Route element={<RoleRoute role="Admin_BEM" />}>
               <Route path="/admin" element={<p>Admin page</p>} />
             </Route>
           </Route>
@@ -42,7 +42,7 @@ describe('Authentication route guards', () => {
     expect(screen.getByText('Login required')).toBeInTheDocument();
   });
 
-  it('keeps admin pages limited to the ADMIN_BEM role', () => {
+  it('keeps admin pages limited to the Admin_BEM role', () => {
     renderProtectedPath('/admin', {
       user: { id: 'student-1', nim: '12345678', role: 'MAHASISWA' },
       token: 'student-token',
@@ -51,9 +51,9 @@ describe('Authentication route guards', () => {
     expect(screen.getByText('Home page')).toBeInTheDocument();
   });
 
-  it('allows ADMIN_BEM sessions to open admin pages', () => {
+  it('allows Admin_BEM sessions to open admin pages', () => {
     renderProtectedPath('/admin', {
-      user: { id: 'admin-1', nim: '10000001', role: 'ADMIN_BEM' },
+      user: { id: 'admin-1', nim: '10000001', role: 'Admin_BEM' },
       token: 'admin-token',
     });
 

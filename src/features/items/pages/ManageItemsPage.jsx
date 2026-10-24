@@ -1,86 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Backpack,
   LockKeyhole,
-  Laptop,
   PackageSearch,
   RefreshCw,
-  Umbrella,
 } from 'lucide-react';
 import { useToast } from '../../../app/providers/ToastProvider.jsx';
 import { Button } from '../../../components/ui/Button.jsx';
 import {
   approveAdminItem,
+  configureAdminItemVerificationQuestions,
   getAdminItems,
   rejectAdminItem,
   restoreAdminItem,
 } from '../../admin/api/adminApi.js';
-
-const initialReports = [
-  {
-    id: 'RP-0113',
-    type: 'Temuan',
-    name: 'Botol minum stainless',
-    category: 'Umum',
-    categoryDetail: 'Botol / Peralatan pribadi',
-    location: 'Perpustakaan',
-    date: '12 Okt 2026',
-    reporter: 'Andi Pratama',
-    nim: '1232001091',
-    description: 'Botol minum stainless ditemukan di meja baca lantai dua.',
-    icon: PackageSearch,
-    status: 'Pending',
-  },
-  {
-    id: 'RP-0112',
-    type: 'Temuan',
-    name: 'Tas ransel hitam',
-    category: 'Umum',
-    categoryDetail: 'Tas / Aksesori',
-    location: 'Aula',
-    date: '12 Okt 2026',
-    reporter: 'Rafi Pratama',
-    nim: '1232001045',
-    description:
-      'Tas ransel hitam, ada gantungan kunci beruang di resleting depan.',
-    icon: Backpack,
-    status: 'Pending',
-  },
-  {
-    id: 'RP-0111',
-    type: 'Temuan',
-    name: 'Laptop Lenovo ThinkPad T14',
-    category: 'Sensitif',
-    categoryDetail: 'Elektronik (HP, Laptop, Tab, Earphone)',
-    location: 'Lab 3',
-    date: '12 Okt 2026',
-    reporter: 'Dewi Lestari',
-    nim: '1232001062',
-    description: 'Laptop abu-abu dengan stiker kucing di bagian atas.',
-    icon: Laptop,
-    status: 'Pending',
-  },
-  {
-    id: 'RP-0108',
-    type: 'Hilang',
-    name: 'Payung biru',
-    category: 'Umum',
-    categoryDetail: 'Tas / Aksesori',
-    location: 'Aula',
-    date: '11 Okt 2026',
-    reporter: 'Bima Saputra',
-    nim: '1232001078',
-    description: '',
-    icon: Umbrella,
-    status: 'Ditolak',
-    rejection: {
-      reason: 'Laporan iseng / tidak valid',
-      note: 'Barang tidak ditemukan saat dicek di Pos Satpam.',
-      by: 'admin-bem',
-      at: '11 Okt 14.20',
-    },
-  },
-];
+import { formatShortDate } from '../../../lib/format.js';
 
 const rejectionReasons = [
   'Laporan iseng / tidak valid',
@@ -94,22 +27,15 @@ function getStatusTone(status) {
   return 'tone-danger';
 }
 
-function currentRejectionTime() {
-  return new Intl.DateTimeFormat('id-ID', {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).format(new Date());
-}
-
 export function ManageItemsPage() {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeFilter, setActiveFilter] = useState('Pending');
   const [rejectingId, setRejectingId] = useState(null);
+  const [questionEditorId, setQuestionEditorId] = useState(null);
+  const [questionDraft, setQuestionDraft] = useState(['']);
+  const [savingQuestionItemId, setSavingQuestionItemId] = useState(null);
   const { notify } = useToast();
 
   async function refreshReports() {
@@ -123,11 +49,14 @@ export function ManageItemsPage() {
         name: item.name,
         category: item.is_sensitive ? 'Sensitif' : 'Umum',
         categoryDetail: item.category_name || '-',
-        location: item.found_location || item.last_seen_location || '-',
-        date: item.found_date || item.created_at || '-',
+        location: item.location || item.lost_location || item.found_location || '-',
+        date: formatShortDate(item.report_date || item.lost_date || item.found_date || item.created_at),
         reporter: item.reporter_name || item.finder_name || item.owner_name || '-',
         nim: item.reporter_nim || item.finder_nim || item.owner_nim || '-',
         description: item.description || '',
+        reportType: item.report_type,
+        claimQuestions: item.claim_questions || [],
+        claimQuestionCount: Number(item.claim_question_count || item.claim_questions?.length || 0),
         icon: PackageSearch,
         status: item.report_review_status === 'rejected'
           ? 'Ditolak'
@@ -170,9 +99,67 @@ export function ManageItemsPage() {
     (filter) => filter.id === activeFilter,
   );
 
-  async function acceptReport(reportId) {
+  function openQuestionEditor(report) {
+    setQuestionEditorId(report.id);
+    setQuestionDraft(report.claimQuestions.length ? [...report.claimQuestions] : ['']);
+  }
+
+  function updateQuestion(index, value) {
+    setQuestionDraft((current) => current.map((question, questionIndex) =>
+      questionIndex === index ? value : question
+    ));
+  }
+
+  function addQuestion() {
+    setQuestionDraft((current) => current.length < 10 ? [...current, ''] : current);
+  }
+
+  function removeQuestion(index) {
+    setQuestionDraft((current) => current.length > 1
+      ? current.filter((_, questionIndex) => questionIndex !== index)
+      : current);
+  }
+
+  async function saveVerificationQuestions(event, report) {
+    event.preventDefault();
+    const questions = questionDraft.map((question) => question.trim());
+    if (
+      questions.length < 1 ||
+      questions.length > 10 ||
+      questions.some((question) => !question || question.length > 500)
+    ) {
+      notify('Masukkan 1–10 pertanyaan, masing-masing maksimal 500 karakter.', 'error');
+      return;
+    }
+
+    setSavingQuestionItemId(report.id);
     try {
-      await approveAdminItem(reportId);
+      if (report.status === 'Pending') {
+        await approveAdminItem(report.id, questions);
+        notify('Pertanyaan tersimpan dan laporan berhasil diterima.', 'success');
+      } else {
+        await configureAdminItemVerificationQuestions(report.id, questions);
+        notify('Pertanyaan verifikasi berhasil disimpan.', 'success');
+      }
+      setQuestionEditorId(null);
+      await refreshReports();
+    } catch (requestError) {
+      notify(
+        requestError.response?.data?.message || 'Pertanyaan verifikasi gagal disimpan.',
+        'error',
+      );
+    } finally {
+      setSavingQuestionItemId(null);
+    }
+  }
+
+  async function acceptReport(report) {
+    if (report.reportType === 'found') {
+      openQuestionEditor(report);
+      return;
+    }
+    try {
+      await approveAdminItem(report.id);
       notify('Laporan berhasil diterima.', 'success');
       await refreshReports();
     } catch (requestError) {
@@ -274,6 +261,7 @@ export function ManageItemsPage() {
           visibleReports.map((report) => {
             const ThumbnailIcon = report.icon;
             const isRejecting = rejectingId === report.id;
+            const isEditingQuestions = questionEditorId === report.id;
 
             return (
               <article className="admin-item-report-card" key={report.id}>
@@ -354,7 +342,7 @@ export function ManageItemsPage() {
                       <>
                         <Button
                           type="button"
-                          onClick={() => acceptReport(report.id)}
+                          onClick={() => acceptReport(report)}
                         >
                           Terima &amp; Catat
                         </Button>
@@ -370,6 +358,17 @@ export function ManageItemsPage() {
                         </Button>
                       </>
                     )}
+                    {report.status === 'Diterima' &&
+                      report.reportType === 'found' &&
+                      report.claimQuestionCount === 0 && (
+                        <Button
+                          variant="secondary"
+                          type="button"
+                          onClick={() => openQuestionEditor(report)}
+                        >
+                          Atur Pertanyaan Klaim
+                        </Button>
+                      )}
                     {report.status === 'Ditolak' && (
                       <>
                         <Button
@@ -387,6 +386,75 @@ export function ManageItemsPage() {
                     )}
                   </div>
                 </div>
+
+                {isEditingQuestions && (
+                  <form
+                    className="admin-item-verification-form"
+                    onSubmit={(event) => saveVerificationQuestions(event, report)}
+                  >
+                    <div className="admin-item-verification-heading">
+                      <div>
+                        <h3>Pertanyaan verifikasi kepemilikan</h3>
+                        <p>
+                          Pemohon klaim akan menjawab pertanyaan ini. Isi 1–10
+                          pertanyaan; jawaban akan diperiksa manual oleh Admin BEM.
+                        </p>
+                      </div>
+                      <span>{questionDraft.length}/10</span>
+                    </div>
+                    <div className="admin-item-verification-fields">
+                      {questionDraft.map((question, index) => (
+                        <label className="admin-field" key={`${report.id}-question-${index}`}>
+                          Pertanyaan {index + 1}
+                          <textarea
+                            name="verification-question"
+                            rows="2"
+                            maxLength={500}
+                            required
+                            value={question}
+                            onChange={(event) => updateQuestion(index, event.target.value)}
+                            placeholder="Contoh: Apa ciri khusus barang yang tidak terlihat pada foto?"
+                          />
+                          {questionDraft.length > 1 && (
+                            <button
+                              className="admin-item-question-remove"
+                              type="button"
+                              onClick={() => removeQuestion(index)}
+                            >
+                              Hapus pertanyaan
+                            </button>
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                    <div className="admin-item-verification-actions">
+                      <Button
+                        variant="secondary"
+                        type="button"
+                        disabled={questionDraft.length >= 10 || Boolean(savingQuestionItemId)}
+                        onClick={addQuestion}
+                      >
+                        Tambah Pertanyaan
+                      </Button>
+                      <Button
+                        className="admin-item-cancel-button"
+                        variant="secondary"
+                        type="button"
+                        disabled={Boolean(savingQuestionItemId)}
+                        onClick={() => setQuestionEditorId(null)}
+                      >
+                        Batal
+                      </Button>
+                      <Button type="submit" disabled={Boolean(savingQuestionItemId)}>
+                        {savingQuestionItemId === report.id
+                          ? 'Menyimpan...'
+                          : report.status === 'Pending'
+                            ? 'Simpan & Terima'
+                            : 'Simpan Pertanyaan'}
+                      </Button>
+                    </div>
+                  </form>
+                )}
 
                 {isRejecting && (
                   <form

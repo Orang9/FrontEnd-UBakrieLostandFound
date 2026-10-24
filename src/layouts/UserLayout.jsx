@@ -24,7 +24,7 @@ const navigation = [
 
 export function UserLayout() {
   const { isAuthenticated, user, logout } = useAuth();
-  const isAdmin = user?.role === 'ADMIN_BEM';
+  const isAdmin = user?.role === 'Admin_BEM';
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const isHome = pathname === paths.home;

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { ArrowLeft } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '../../../app/providers/ToastProvider.jsx';
 import { Button } from '../../../components/ui/Button.jsx';
 import { SYSTEM_MESSAGES } from '../../../constants/messages.js';
@@ -10,10 +10,18 @@ import { ReportCategoryField } from '../components/ReportCategoryField.jsx';
 import { ReportPhotoField } from '../components/ReportPhotoField.jsx';
 import { createItemReport } from '../api/reportItemApi.js';
 
+const reportTypes = [
+  { value: 'found', label: 'Barang Temuan' },
+  { value: 'lost', label: 'Barang Hilang' },
+];
+
 export function ReportItemPage() {
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { notify } = useToast();
+  const initialType = searchParams.get('type') === 'lost' ? 'lost' : 'found';
+  const [reportType, setReportType] = useState(initialType);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const {
@@ -37,7 +45,7 @@ export function ReportItemPage() {
           if (value?.[0]) formData.append('photo', value[0]);
         } else if (value !== undefined) formData.append(key, value);
       });
-      formData.append('type', 'found');
+      formData.append('type', reportType);
       await createItemReport(formData);
       notify('Laporan barang berhasil dikirim.', 'success');
       navigate(paths.catalog);
@@ -68,6 +76,23 @@ export function ReportItemPage() {
       </header>
 
       <div className="report-content">
+        <div
+          className="report-segmented"
+          role="group"
+          aria-label="Jenis laporan"
+        >
+          {reportTypes.map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              className={`report-segment${reportType === value ? ' is-active' : ''}`}
+              aria-pressed={reportType === value}
+              onClick={() => setReportType(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <form
           className="report-form"
           noValidate
@@ -96,11 +121,15 @@ export function ReportItemPage() {
           />
 
           <label className="report-field" htmlFor="item-location">
-            <span>Lokasi ditemukan</span>
+            <span>{reportType === 'lost' ? 'Lokasi hilang' : 'Lokasi ditemukan'}</span>
             <input
               id="item-location"
               type="text"
-              placeholder="Contoh: Kantin gedung A"
+              placeholder={
+                reportType === 'lost'
+                  ? 'Contoh: Kantin gedung A'
+                  : 'Contoh: Kantin gedung A'
+              }
               aria-invalid={Boolean(errors.location)}
               {...register('location', { required: 'Lokasi wajib diisi.' })}
             />
@@ -156,7 +185,7 @@ export function ReportItemPage() {
             <Button className="report-submit-button" type="submit" disabled={submitting}>
               {submitting ? 'Mengirim...' : 'Kirim Laporan'}
             </Button>
-            <p>Status awal: Menunggu di Pos Satpam</p>
+            <p>Laporan akan ditampilkan setelah ditinjau Admin BEM.</p>
           </div>
         </form>
       </div>

@@ -4,6 +4,7 @@ import { HistoryItemCard } from '../components/HistoryItemCard.jsx';
 import { ClaimTimeline } from '../components/ClaimTimeline.jsx';
 import { getProfile } from '../api/profileApi.js';
 import { paths } from '../../../app/router/paths.js';
+import { formatShortDate } from '../../../lib/format.js';
 
 const tabs = [
   { id: 'claims', label: 'Riwayat Klaim' },
@@ -36,7 +37,7 @@ export function ProfilePage() {
     item: { name: report.name ?? report.item_name ?? 'Barang', category: report.category ?? (Number(report.is_sensitive) ? 'Sensitif' : 'Umum'), icon: report.icon ?? 'backpack' },
     type: report.report_type === 'lost' ? 'Hilang' : 'Temuan',
     status: String(report.status ?? report.report_review_status ?? '').toUpperCase(),
-    date: report.found_date ?? report.date,
+    date: formatShortDate(report.report_date ?? report.lost_date ?? report.found_date ?? report.date),
   }));
   const submittedClaim = claims.find((claim) => claim.id === claimId);
   const updatedClaim = claims.find((claim) => claim.id === claimId);

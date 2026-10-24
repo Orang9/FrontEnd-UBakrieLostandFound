@@ -1170,6 +1170,34 @@ a {
   padding: 20px 0 32px;
 }
 
+.report-segmented {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: #e8e5e3;
+}
+
+.report-segment {
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-ink-muted);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.report-segment.is-active {
+  background: var(--color-primary);
+  color: white;
+  font-weight: 700;
+}
+
 .report-form {
   display: grid;
   gap: 18px;
@@ -3464,6 +3492,83 @@ a {
   margin: -4px 0 0;
 }
 
+.admin-item-verification-form {
+  display: grid;
+  gap: 16px;
+  padding: 18px 20px;
+  border-top: 1px dashed var(--color-line);
+  background: var(--color-surface);
+}
+
+.admin-item-verification-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-item-verification-heading h3 {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 14px;
+}
+
+.admin-item-verification-heading p {
+  margin: 5px 0 0;
+  color: var(--color-ink-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.admin-item-verification-heading>span {
+  flex: 0 0 auto;
+  color: var(--color-ink-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-item-verification-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-item-verification-form textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: white;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  resize: vertical;
+}
+
+.admin-item-question-remove {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-danger);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.admin-item-verification-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.admin-item-verification-actions .button {
+  min-height: 42px;
+}
+
 .admin-item-empty {
   text-align: center;
 }
@@ -5696,6 +5801,26 @@ a {
     grid-template-columns: minmax(0, 1fr);
     gap: 12px;
     padding: 14px;
+  }
+
+  .admin-item-verification-form {
+    padding: 14px;
+  }
+
+  .admin-item-verification-fields {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .admin-item-verification-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-item-verification-actions .button {
+    min-height: 46px;
+    padding: 0 8px;
+    font-size: 12px;
   }
 
   .admin-item-rejection-actions {

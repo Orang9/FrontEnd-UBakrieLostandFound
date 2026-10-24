@@ -87,7 +87,7 @@ export function ClaimPage() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm({ defaultValues: { answers: ['', ''] } });
+  } = useForm({ defaultValues: { answers: [] } });
 
   if (loading) return <div className="claim-page"><p role="status">Memuat barang...</p></div>;
   if (!item) {
@@ -119,15 +119,12 @@ export function ClaimPage() {
     );
   }
 
-  const cannotClaim = item.status !== ITEM_STATUS.AVAILABLE;
-  const questions = item.claimQuestions ?? [
-    'Sebutkan ciri khusus barang yang ingin Anda klaim.',
-    'Kapan dan di mana barang tersebut hilang?',
-  ];
+  const questions = item.claimQuestions ?? [];
+  const cannotClaim = item.status !== ITEM_STATUS.AVAILABLE || questions.length === 0;
 
   async function onSubmit(values) {
-    const answers = [values.answers[0], values.answers[1]];
-    if (validateClaimAnswers(answers) !== true) return;
+    const answers = Array.isArray(values.answers) ? values.answers : [];
+    if (validateClaimAnswers(answers, questions.length) !== true) return;
 
     try {
       if (hasActiveClaimForItem(item.id)) {
@@ -240,21 +237,22 @@ export function ClaimPage() {
           <h2>{cannotClaim ? 'Klaim belum tersedia' : 'Verifikasi Kepemilikan'}</h2>
           {cannotClaim ? (
             <p className="claim-description">
-              Barang masih menunggu di Pos Satpam atau sudah diklaim. Klaim hanya
-              tersedia setelah barang berstatus Tersedia di Lemari.
+              {questions.length === 0 && item.status === ITEM_STATUS.AVAILABLE
+                ? 'Pertanyaan verifikasi untuk barang ini belum diatur oleh Admin BEM.'
+                : 'Klaim hanya tersedia untuk barang temuan yang berstatus Tersedia dan memiliki pertanyaan verifikasi.'}
             </p>
           ) : (
             <>
           <p className="claim-description">
-            Jawab 2 pertanyaan kunci. Admin BEM akan meninjau secara manual
-            sebelum klaim disetujui.
+            Jawab {questions.length} pertanyaan kunci. Admin BEM akan meninjau
+            jawaban secara manual sebelum klaim disetujui.
           </p>
           <form
             className="claim-form"
             noValidate
             onSubmit={handleSubmit(onSubmit)}
           >
-            {questions.slice(0, 2).map((question, index) => (
+            {questions.map((question, index) => (
               <label
                 className="claim-field"
                 htmlFor={`claim-answer-${index}`}
@@ -267,9 +265,7 @@ export function ClaimPage() {
                   id={`claim-answer-${index}`}
                   type="text"
                   placeholder={
-                    index === 0
-                      ? 'Tulis jawaban Anda'
-                      : 'Jelaskan ciri-ciri barang'
+                    'Tulis jawaban Anda'
                   }
                   aria-invalid={Boolean(errors.answers?.[index])}
                   {...register(`answers.${index}`, {

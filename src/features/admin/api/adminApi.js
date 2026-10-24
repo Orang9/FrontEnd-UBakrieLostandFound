@@ -5,8 +5,20 @@ export async function getAdminItems(params) {
   return data;
 }
 
-export async function approveAdminItem(itemId) {
-  const { data } = await apiClient.patch(`/admin/items/${encodeURIComponent(itemId)}/approve`);
+export async function approveAdminItem(itemId, questions) {
+  const payload = questions ? { questions } : undefined;
+  const { data } = await apiClient.patch(
+    `/admin/items/${encodeURIComponent(itemId)}/approve`,
+    payload,
+  );
+  return data;
+}
+
+export async function configureAdminItemVerificationQuestions(itemId, questions) {
+  const { data } = await apiClient.put(
+    `/admin/items/${encodeURIComponent(itemId)}/verification-questions`,
+    { questions },
+  );
   return data;
 }
 

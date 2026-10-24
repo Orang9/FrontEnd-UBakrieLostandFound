@@ -11,6 +11,10 @@ export function formatDate(value, pattern = 'd MMMM yyyy') {
   return format(toDate(value), pattern, { locale: id });
 }
 
+export function formatShortDate(value) {
+  return value && value !== '-' ? formatDate(value, 'd MMM yyyy') : '-';
+}
+
 export function formatTime(value) {
   return format(toDate(value), 'HH:mm', { locale: id });
 }

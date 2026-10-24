@@ -9,8 +9,12 @@ import { getCatalog, normalizeItem } from '../api/catalogApi.js';
 
 const filters = ['Semua', 'Umum', 'Sensitif'];
 const categoryFilters = ['Umum', 'Sensitif'];
+const reportTypeFilters = [
+  { value: 'found', label: 'Barang Temuan' },
+  { value: 'lost', label: 'Barang Hilang' },
+];
 const statusFilters = [
-  'WAITING_AT_SECURITY',
+  'ACTIVE',
   'AVAILABLE',
   'CLAIMED',
 ];
@@ -23,12 +27,18 @@ export function CatalogPage() {
   const [activeFilter, setActiveFilter] = useState('Semua');
   const [desktopFilters, setDesktopFilters] = useState({
     category: [],
+    reportType: [],
     status: [],
   });
+  const selectedReportType = desktopFilters.reportType.length === 1
+    ? desktopFilters.reportType[0]
+    : 'all';
 
   useEffect(() => {
     let active = true;
-    getCatalog()
+    setLoading(true);
+    setError('');
+    getCatalog({ report_type: selectedReportType })
       .then((data) => {
         const rows = Array.isArray(data) ? data : data?.items ?? [];
         if (active) setItems(rows.map(normalizeItem));
@@ -36,7 +46,7 @@ export function CatalogPage() {
       .catch(() => active && setError('Katalog tidak dapat dimuat. Coba lagi.'))
       .finally(() => active && setLoading(false));
     return () => { active = false; };
-  }, []);
+  }, [selectedReportType]);
 
   function toggleDesktopFilter(group, value) {
     setDesktopFilters((current) => ({
@@ -65,6 +75,12 @@ export function CatalogPage() {
       const matchesCategory =
         desktopFilters.category.length === 0 ||
         desktopFilters.category.includes(item.category);
+      const matchesReportType =
+        desktopFilters.reportType.length === 0 ||
+        desktopFilters.reportType.length === reportTypeFilters.length ||
+        desktopFilters.reportType.includes(
+          item.report_type ?? (item.type === 'Hilang' ? 'lost' : 'found'),
+        );
       const matchesStatus =
         desktopFilters.status.length === 0 ||
         desktopFilters.status.includes(item.status);
@@ -73,6 +89,7 @@ export function CatalogPage() {
         matchesQuery &&
         matchesFilter &&
         matchesCategory &&
+        matchesReportType &&
         matchesStatus
       );
     });
@@ -137,7 +154,7 @@ export function CatalogPage() {
           </Link>
         </form>
 
-        <div className="catalog-filters" aria-label="Filter katalog">
+        <div className="catalog-filters" aria-label="Filter kategori">
           {filters.map((filter) => (
             <button
               key={filter}
@@ -151,8 +168,30 @@ export function CatalogPage() {
           ))}
         </div>
 
+        <div className="catalog-filters" role="group" aria-label="Filter jenis barang">
+          {reportTypeFilters.map(({ value, label }) => {
+            const isActive = desktopFilters.reportType.includes(value);
+            return (
+              <button
+                key={value}
+                type="button"
+                className={`catalog-filter${isActive ? ' is-active' : ''}`}
+                aria-pressed={isActive}
+                onClick={() => toggleDesktopFilter('reportType', value)}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
         <aside className="catalog-sidebar" aria-label="Filter barang">
           <h2>Filter</h2>
+          {renderCheckboxGroup(
+            'Jenis barang',
+            'reportType',
+            reportTypeFilters,
+          )}
           {renderCheckboxGroup(
             'Kategori',
             'category',

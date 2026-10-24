@@ -8,7 +8,7 @@ Aplikasi frontend web untuk layanan barang hilang dan ditemukan di lingkungan Un
 
 Struktur navigasi dan folder fitur mencakup kebutuhan berikut:
 
-- **Autentikasi** — halaman masuk dengan NIM dan kata sandi, session pengguna, proteksi rute mahasiswa, serta proteksi role `ADMIN_BEM` untuk seluruh halaman admin.
+- **Autentikasi** — halaman masuk dengan NIM dan kata sandi, session pengguna, proteksi rute mahasiswa, serta proteksi role `Admin_BEM` untuk seluruh halaman admin.
 - **Beranda** — titik masuk pengguna dan navigasi ke katalog atau pelaporan.
 - **Katalog** — pencarian dan filter daftar barang contoh.
 - **Pelaporan barang** — form responsif untuk laporan kehilangan/temuan, kategori umum/sensitif, validasi field, dan upload foto JPG/PNG maksimal 5 MB dengan preview blur untuk item sensitif.
@@ -25,9 +25,9 @@ Struktur navigasi dan folder fitur mencakup kebutuhan berikut:
 
 Fitur yang berkomunikasi dengan backend memisahkan pemanggilan HTTP ke modul `api/` pada folder fiturnya. Kontrak endpoint yang tersedia saat ini adalah titik awal dan harus disesuaikan dengan API backend sebenarnya.
 
-Beranda dan katalog dapat dibuka tanpa login. Pengajuan klaim, pelaporan, profil/riwayat, penjadwalan, dan E-Ticket memerlukan session pengguna. Akses ke semua halaman `/admin/*` memerlukan session dengan role `ADMIN_BEM`; pengguna tanpa session diarahkan ke `/login`, sedangkan role lain diarahkan ke beranda.
+Beranda dan katalog dapat dibuka tanpa login. Pengajuan klaim, pelaporan, profil/riwayat, penjadwalan, dan E-Ticket memerlukan session pengguna. Akses ke semua halaman `/admin/*` memerlukan session dengan role `Admin_BEM`; pengguna tanpa session diarahkan ke `/login`, sedangkan role lain diarahkan ke beranda.
 
-Form login mengirim `{ "nim": "...", "password": "..." }` ke `POST /auth/login`. Backend diharapkan mengembalikan `{ "user": { "id": "...", "nim": "...", "name": "...", "role": "MAHASISWA|ADMIN_BEM" }, "token": "..." }`. Token session disimpan di `localStorage` dan dikirim sebagai bearer token untuk permintaan API. Backend tetap harus memvalidasi kredensial serta role; route guard frontend bukan pengganti otorisasi backend.
+Form login mengirim `{ "nim": "...", "password": "..." }` ke `POST /auth/login`. Backend diharapkan mengembalikan `{ "user": { "id": "...", "nim": "...", "name": "...", "role": "MAHASISWA|Admin_BEM" }, "token": "..." }`. Token session disimpan di `localStorage` dan dikirim sebagai bearer token untuk permintaan API. Backend tetap harus memvalidasi kredensial serta role; route guard frontend bukan pengganti otorisasi backend.
 
 Pengiriman klaim disimpan hanya di `localStorage` browser sebagai data preview `PENDING`, bukan dikirim ke backend. Riwayat profil menyertakan klaim contoh berstatus `APPROVED` untuk mencoba alur jadwal; kartu klaim `SCHEDULED` dapat dibuka untuk menampilkan QR preview yang berlaku 30 menit dan dapat diperbarui. Slot, ketersediaan, perubahan status `SCHEDULED`, intake, dan QR tiket hanya preview lokal; kuota real-time, persetujuan admin, token terenkripsi, validasi sekali pakai oleh scanner, serta tiket pengambilan sebenarnya belum terhubung ke backend. Pengiriman laporan masih menampilkan pemberitahuan bahwa integrasi backend belum tersedia. Data riwayat profil dan katalog awal merupakan data contoh.
 

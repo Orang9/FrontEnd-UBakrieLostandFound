@@ -23,7 +23,7 @@ async function prepareAdminPreview(page, claims = [scheduledClaim]) {
       'ubakrie-lf-auth',
       JSON.stringify({
         token: 'admin-preview-token',
-        user: { id: 'ADMIN-01', role: 'ADMIN_BEM', name: 'Admin BEM' },
+        user: { id: 'ADMIN-01', role: 'Admin_BEM', name: 'Admin BEM' },
       }),
     );
     localStorage.setItem(

@@ -1,6 +1,6 @@
 export const ITEM_STATUS = Object.freeze({
+  ACTIVE: 'ACTIVE',
   AVAILABLE: 'AVAILABLE',
-  WAITING_AT_SECURITY: 'WAITING_AT_SECURITY',
   CLAIMED: 'CLAIMED',
   SCHEDULED: 'SCHEDULED',
   REJECTED: 'REJECTED',
@@ -16,11 +16,11 @@ export const CLAIM_STATUS = Object.freeze({
 });
 
 export const STATUS_LABELS = Object.freeze({
-  PENDING: 'Menunggu di Pos Satpam',
-  SECURED: 'Tersedia di Lemari',
+  PENDING: 'Menunggu Persetujuan',
+  SECURED: 'Tersedia',
   CLAIMED: 'Diklaim',
-  [ITEM_STATUS.AVAILABLE]: 'Tersedia di Lemari',
-  [ITEM_STATUS.WAITING_AT_SECURITY]: 'Menunggu di Pos Satpam',
+  [ITEM_STATUS.ACTIVE]: 'Laporan aktif',
+  [ITEM_STATUS.AVAILABLE]: 'Tersedia',
   [ITEM_STATUS.CLAIMED]: 'Diklaim',
   [ITEM_STATUS.SCHEDULED]: 'Terjadwal',
   [ITEM_STATUS.REJECTED]: 'Ditolak',
@@ -33,8 +33,8 @@ export const STATUS_TONES = Object.freeze({
   PENDING: 'warning',
   SECURED: 'success',
   CLAIMED: 'info',
+  [ITEM_STATUS.ACTIVE]: 'info',
   [ITEM_STATUS.AVAILABLE]: 'success',
-  [ITEM_STATUS.WAITING_AT_SECURITY]: 'warning',
   [ITEM_STATUS.CLAIMED]: 'info',
   [ITEM_STATUS.SCHEDULED]: 'violet',
   [ITEM_STATUS.REJECTED]: 'danger',

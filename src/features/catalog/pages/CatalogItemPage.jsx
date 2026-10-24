@@ -23,14 +23,39 @@ export function CatalogItemPage() {
           className="catalog-detail-image"
           src={item.imageUrl}
           alt={`Foto ${item.name}`}
-          loading="lazy"
+          loading="eager"
         />
       )}
       <StatusBadge status={item.status} />
       <p>{item.type} · {item.category}</p>
       <p>{item.location} · {item.date}</p>
       <p>{item.description}</p>
-      {item.status !== 'CLAIMED' && <Link className="button button-primary" to={paths.claim(item.id)}>Ajukan Klaim</Link>}
+      {item.type === 'Temuan' && item.status === 'AVAILABLE' && (
+        <section className="claim-verification" aria-labelledby="claim-verification-title">
+          <h2 id="claim-verification-title">Verifikasi Kepemilikan</h2>
+          {item.claimQuestions.length ? (
+            <>
+              <p className="claim-description">
+                Jawab {item.claimQuestions.length} pertanyaan kunci. Admin BEM
+                akan meninjau jawaban secara manual sebelum klaim disetujui.
+              </p>
+              <ol className="catalog-verification-questions">
+                {item.claimQuestions.map((question) => (
+                  <li key={question}>{question}</li>
+                ))}
+              </ol>
+              <Link className="button button-primary" to={paths.claim(item.id)}>
+                Ajukan Klaim
+              </Link>
+            </>
+          ) : (
+            <p className="claim-description">
+              Pertanyaan verifikasi kepemilikan belum diatur oleh Admin BEM.
+              Klaim belum dapat diajukan.
+            </p>
+          )}
+        </section>
+      )}
     </article>
   </main>;
 }

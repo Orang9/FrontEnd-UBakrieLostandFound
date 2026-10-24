@@ -49,7 +49,7 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       {
-        element: <RoleRoute role="ADMIN_BEM" />,
+        element: <RoleRoute role="Admin_BEM" />,
         children: [
           {
             element: <AdminLayout />,

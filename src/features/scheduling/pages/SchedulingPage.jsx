@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { paths } from '../../../app/router/paths.js';
 import { getProfile } from '../../profile/api/profileApi.js';
 import { getSlots, createSchedule } from '../api/schedulingApi.js';
+import { formatShortDate } from '../../../lib/format.js';
 
 export function SchedulingPage() {
   const [params] = useSearchParams();
@@ -36,8 +37,8 @@ export function SchedulingPage() {
     <header className="scheduling-header"><Link className="scheduling-back" to={paths.profile} aria-label="Kembali ke profil"><ArrowLeft size={22} /></Link><h1>Pilih Slot Pengambilan</h1></header>
     {loading ? <p role="status">Memuat jadwal...</p> : error && !claim ? <p role="alert">{error}</p> : !canSchedule ? <section className="scheduling-unavailable" role="status"><p>{claim ? 'Jadwal hanya dapat dipilih setelah klaim disetujui.' : 'Klaim yang disetujui tidak ditemukan.'}</p><Link to={`${paths.profile}?tab=claims`}>Kembali ke profil</Link></section> : <form className="scheduling-content" onSubmit={submit}>
       <div className="scheduling-approval" role="status">Klaim disetujui. Pilih jadwal pengambilan.</div>
-      <section className="scheduling-section"><h2>Pilih tanggal</h2><label className="scheduling-date is-selected"><input type="date" value={date} onChange={(event) => setDate(event.target.value)} required /><strong>{date}</strong></label></section>
-      <section className="scheduling-section"><h2>Slot tersedia - {date}</h2><div className="scheduling-slot-list" role="radiogroup" aria-label="Pilih slot waktu">{slots.map((item) => <label className={`scheduling-slot${String(slotId) === String(item.id) ? ' is-selected' : ''}${item.available ? '' : ' is-full'}`} key={item.id}><input type="radio" name="schedule-slot" value={item.id} checked={String(slotId) === String(item.id)} disabled={!item.available} onChange={() => setSlotId(item.id)} /><strong>{item.label}</strong>{!item.available && <span className="scheduling-full-badge">Penuh</span>}</label>)}</div></section>
+      <section className="scheduling-section"><h2>Pilih tanggal</h2><label className="scheduling-date is-selected"><input type="date" value={date} onChange={(event) => setDate(event.target.value)} required /><strong>{formatShortDate(date)}</strong></label></section>
+      <section className="scheduling-section"><h2>Slot tersedia - {formatShortDate(date)}</h2><div className="scheduling-slot-list" role="radiogroup" aria-label="Pilih slot waktu">{slots.map((item) => <label className={`scheduling-slot${String(slotId) === String(item.id) ? ' is-selected' : ''}${item.available ? '' : ' is-full'}`} key={item.id}><input type="radio" name="schedule-slot" value={item.id} checked={String(slotId) === String(item.id)} disabled={!item.available} onChange={() => setSlotId(item.id)} /><strong>{item.label}</strong>{!item.available && <span className="scheduling-full-badge">Penuh</span>}</label>)}</div></section>
       <button className="scheduling-confirm" type="submit" disabled={!selected?.available}>Konfirmasi Jadwal</button>{error && <p role="alert">{error}</p>}
     </form>}
   </main>;

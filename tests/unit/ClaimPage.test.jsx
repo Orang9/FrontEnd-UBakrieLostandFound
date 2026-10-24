@@ -1,11 +1,68 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ToastProvider } from '../../src/app/providers/ToastProvider.jsx';
 import { ClaimPage } from '../../src/features/claim/index.js';
 import { ProfilePage } from '../../src/features/profile/index.js';
 
-beforeEach(() => localStorage.clear());
+vi.mock('../../src/features/catalog/api/catalogApi.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, getCatalogItem: vi.fn() };
+});
+vi.mock('../../src/features/claim/api/claimApi.js', () => ({
+  createClaim: vi.fn(),
+}));
+vi.mock('../../src/features/profile/api/profileApi.js', () => ({
+  getProfile: vi.fn(),
+}));
+
+import { getCatalogItem } from '../../src/features/catalog/api/catalogApi.js';
+import { createClaim } from '../../src/features/claim/api/claimApi.js';
+import { getProfile } from '../../src/features/profile/api/profileApi.js';
+
+beforeEach(() => {
+  localStorage.clear();
+  getCatalogItem.mockResolvedValue({
+    item_id: 'dompet-kartu-identitas',
+    name: 'Dompet / kartu identitas',
+    report_type: 'found',
+    status: 'available',
+    category_name: 'Sensitif',
+    location: 'Kantin',
+    report_date: '2026-10-21',
+    claim_questions: [
+      'Sebutkan isi dompet selain kartu identitas',
+      'Warna / ciri khusus dompet',
+    ],
+  });
+  createClaim.mockResolvedValue({ claim_id: 'CL-0147' });
+  getProfile.mockResolvedValue({
+    data: {
+      claims: [
+        {
+          claim_id: 'CL-0147',
+          status: 'pending',
+          item_name: 'Dompet / kartu identitas',
+          item: {
+            id: 'dompet-kartu-identitas',
+            name: 'Dompet / kartu identitas',
+            category: 'Sensitif',
+            icon: 'wallet',
+          },
+          detailed: true,
+          steps: [
+            {
+              key: 'PENDING',
+              label: 'Menunggu persetujuan Admin BEM (PENDING)',
+              time: 'Menunggu persetujuan',
+              complete: false,
+            },
+          ],
+        },
+      ],
+    },
+  });
+});
 afterEach(() => {
   cleanup();
   localStorage.clear();
@@ -25,11 +82,11 @@ function renderClaimFlow(itemId = 'dompet-kartu-identitas') {
 }
 
 describe('ClaimPage', () => {
-  it('shows an item-specific verification form', () => {
+  it('shows an item-specific verification form', async () => {
     renderClaimFlow();
 
     expect(
-      screen.getByRole('heading', { name: 'Ajukan Klaim' }),
+      await screen.findByRole('heading', { name: 'Ajukan Klaim' }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: 'Dompet / kartu identitas' }),
@@ -42,11 +99,43 @@ describe('ClaimPage', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders and submits the configured number of verification questions', async () => {
+    getCatalogItem.mockResolvedValueOnce({
+      item_id: 'item-with-three-prompts',
+      name: 'Tas ransel',
+      report_type: 'found',
+      status: 'available',
+      category_name: 'Umum',
+      location: 'Aula',
+      report_date: '2026-10-21',
+      claim_questions: ['Pertanyaan satu?', 'Pertanyaan dua?', 'Pertanyaan tiga?'],
+    });
+    renderClaimFlow('item-with-three-prompts');
+
+    expect(await screen.findByText('Jawab 3 pertanyaan kunci. Admin BEM akan meninjau jawaban secara manual sebelum klaim disetujui.'))
+      .toBeInTheDocument();
+    const questions = ['Pertanyaan satu?', 'Pertanyaan dua?', 'Pertanyaan tiga?'];
+    questions.forEach((question, index) => {
+      fireEvent.change(screen.getByLabelText(`${index + 1}. ${question}`), {
+        target: { value: `Jawaban ${index + 1}` },
+      });
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Kirim Klaim' }));
+
+    expect(await screen.findByRole('heading', { name: 'Riwayat Saya' })).toBeInTheDocument();
+    expect(createClaim).toHaveBeenCalledOnce();
+    expect(JSON.parse(createClaim.mock.calls[0][1].get('answers'))).toEqual([
+      'Jawaban 1',
+      'Jawaban 2',
+      'Jawaban 3',
+    ]);
+  });
+
   it('stores a pending claim locally and navigates to profile history', async () => {
     renderClaimFlow();
 
     fireEvent.change(
-      screen.getByLabelText('1. Sebutkan isi dompet selain kartu identitas'),
+      await screen.findByLabelText('1. Sebutkan isi dompet selain kartu identitas'),
       { target: { value: 'Kartu ATM dan struk' } },
     );
     fireEvent.change(screen.getByLabelText('2. Warna / ciri khusus dompet'), {

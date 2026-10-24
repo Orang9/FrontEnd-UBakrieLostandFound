@@ -5,6 +5,7 @@ import {
   getTicket,
 } from '../api/eticketApi.js';
 import { paths } from '../../../app/router/paths.js';
+import { formatShortDate } from '../../../lib/format.js';
 
 const QR_VALIDITY_MS = 30 * 60 * 1000;
 
@@ -34,7 +35,7 @@ export function EticketPage() {
           ticketId,
           qrToken: qr,
           qrGeneratedAt: ticket?.issued_at ?? ticket?.issuedAt ?? new Date().toISOString(),
-          date: ticket?.scheduled_date ?? ticket?.schedule?.date ?? '-',
+          date: formatShortDate(ticket?.scheduled_date ?? ticket?.schedule?.date),
           time: ticket?.time ?? ticket?.schedule?.time ?? '-',
         },
       });
