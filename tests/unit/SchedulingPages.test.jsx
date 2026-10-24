@@ -2,8 +2,12 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ToastProvider } from '../../src/app/providers/ToastProvider.jsx';
-import { AdminSchedulingPage, SchedulingPage } from '../../src/features/scheduling/index.js';
+import {
+  AdminSchedulingPage,
+  SchedulingPage,
+} from '../../src/features/scheduling/index.js';
 import { upsertPreviewClaim } from '../../src/lib/claimStorage.js';
+import { getScheduleDates } from '../../src/features/scheduling/lib/scheduleDates.js';
 
 afterEach(cleanup);
 
@@ -16,7 +20,7 @@ function renderWithProviders(component, initialEntries = ['/']) {
 }
 
 describe('AdminSchedulingPage', () => {
-  it('renders correctly with default slots and matches READTHIS layout', () => {
+  it('renders dynamically generated upcoming dates with default slots', () => {
     renderWithProviders(<AdminSchedulingPage />);
 
     expect(
@@ -26,7 +30,12 @@ describe('AdminSchedulingPage', () => {
       screen.getByRole('heading', { name: 'Jadwal Slot' }),
     ).toBeInTheDocument();
     expect(screen.getAllByText('09.00 - 10.00').length).toBeGreaterThan(0);
-    expect(screen.getByText('Rabu, 14 Okt, 2026')).toBeInTheDocument();
+    expect(screen.getByText(getScheduleDates()[0].full)).toBeInTheDocument();
+    expect(
+      screen.getByRole('radio', {
+        name: new RegExp(getScheduleDates()[0].weekday),
+      }),
+    ).toBeChecked();
   });
 
   it('allows switching to Add Slot tab and validates form', () => {
@@ -46,16 +55,20 @@ describe('AdminSchedulingPage', () => {
   it('switches dates using the date picker', () => {
     renderWithProviders(<AdminSchedulingPage />);
 
-    const thursdayRadio = screen.getByRole('radio', { name: /Kam/i });
-    fireEvent.click(thursdayRadio);
+    const nextDate = getScheduleDates()[1];
+    fireEvent.click(
+      screen.getByRole('radio', { name: new RegExp(nextDate.weekday) }),
+    );
 
-    expect(screen.getByText('Kamis, 15 Okt, 2026')).toBeInTheDocument();
+    expect(screen.getByText(nextDate.full)).toBeInTheDocument();
   });
 });
 
 describe('SchedulingPage', () => {
   it('renders unavailable status when claim is not found or not approved', () => {
-    renderWithProviders(<SchedulingPage />, ['/scheduling?claimId=non-existent']);
+    renderWithProviders(<SchedulingPage />, [
+      '/scheduling?claimId=non-existent',
+    ]);
 
     expect(
       screen.getByRole('heading', { name: 'Pilih Slot Pengambilan' }),
@@ -65,21 +78,32 @@ describe('SchedulingPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders date list, slot options, and confirmation button when claim is approved', () => {
+  it('renders upcoming dates, slot options, and confirmation for approved claims', () => {
     upsertPreviewClaim({
       id: 'CLM-TEST-01',
       status: 'APPROVED',
       item: { id: 'ITM-01', name: 'Laptop Asus' },
     });
 
-    renderWithProviders(<SchedulingPage />, ['/scheduling?claimId=CLM-TEST-01']);
+    renderWithProviders(<SchedulingPage />, [
+      '/scheduling?claimId=CLM-TEST-01',
+    ]);
 
     expect(
       screen.getByText('Klaim disetujui. Pilih jadwal pengambilan.'),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: /Slot tersedia - Rabu, 14 Okt/ }),
+      screen.getByRole('heading', {
+        name: `Slot tersedia - ${getScheduleDates()[0].full}`,
+      }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Konfirmasi Jadwal' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('radio', {
+        name: new RegExp(getScheduleDates()[0].weekday),
+      }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole('button', { name: 'Konfirmasi Jadwal' }),
+    ).toBeInTheDocument();
   });
 });

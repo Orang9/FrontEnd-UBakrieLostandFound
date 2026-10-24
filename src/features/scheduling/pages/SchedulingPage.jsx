@@ -9,14 +9,9 @@ import {
 import { paths } from '../../../app/router/paths.js';
 import { getProfile } from '../../profile/api/profileApi.js';
 import { createSchedule, getSlots } from '../api/schedulingApi.js';
+import { getScheduleDates } from '../lib/scheduleDates.js';
 
-const dates = [
-  { id: '12', weekday: 'Sen', heading: 'Senin, 12 Okt', fullDate: '2026-10-12' },
-  { id: '13', weekday: 'Sel', heading: 'Selasa, 13 Okt', fullDate: '2026-10-13' },
-  { id: '14', weekday: 'Rab', heading: 'Rabu, 14 Okt', fullDate: '2026-10-14' },
-  { id: '15', weekday: 'Kam', heading: 'Kamis, 15 Okt', fullDate: '2026-10-15' },
-  { id: '16', weekday: 'Jum', heading: 'Jumat, 16 Okt', fullDate: '2026-10-16' },
-];
+const dates = getScheduleDates();
 
 const defaultSlots = [
   { id: '09-10', label: '09.00 - 10.00', available: true },
@@ -36,8 +31,7 @@ function findStoredClaim(claimId) {
     // Ignore storage parse errors
   }
   return (
-    claimHistory.find((item) => String(item.id) === String(claimId)) ??
-    null
+    claimHistory.find((item) => String(item.id) === String(claimId)) ?? null
   );
 }
 
@@ -45,19 +39,20 @@ export function SchedulingPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const claimId = searchParams.get('claimId');
-  const [claim, setClaim] = useState(() => (claimId ? findStoredClaim(claimId) : null));
-  const [selectedDate, setSelectedDate] = useState('14');
-  const [selectedSlot, setSelectedSlot] = useState('11-12');
+  const [claim, setClaim] = useState(() =>
+    claimId ? findStoredClaim(claimId) : null,
+  );
+  const [selectedDate, setSelectedDate] = useState(dates[0]?.id ?? '');
+  const [selectedSlot, setSelectedSlot] = useState('09-10');
   const [slots, setSlots] = useState(defaultSlots);
   const [isLive, setIsLive] = useState(false);
   const [error, setError] = useState('');
 
-  const selectedDateInfo =
-    dates.find((date) => date.id === selectedDate) ?? dates[2];
-  const canSchedule =
-    ['APPROVED', 'VERIFIED'].includes(
-      String(claim?.status ?? '').toUpperCase(),
-    );
+  const selectedDateInfo = dates.find((date) => date.id === selectedDate);
+  const selectedDateValue = selectedDateInfo?.date;
+  const canSchedule = ['APPROVED', 'VERIFIED'].includes(
+    String(claim?.status ?? '').toUpperCase(),
+  );
 
   // Fetch claim from profile if available
   useEffect(() => {
@@ -100,7 +95,8 @@ export function SchedulingPage() {
   // Fetch slots for selected date
   useEffect(() => {
     let mounted = true;
-    const dateParam = selectedDateInfo.fullDate;
+    if (!selectedDateValue) return undefined;
+    const dateParam = selectedDateValue;
 
     getSlots({ date: dateParam })
       .then((result) => {
@@ -109,13 +105,18 @@ export function SchedulingPage() {
           result?.data?.slots ?? result?.slots ?? result?.data ?? [];
         if (Array.isArray(rawSlots) && rawSlots.length > 0) {
           const mapped = rawSlots.map((item) => {
-            const startStr = String(item.start_time || '').slice(0, 5).replace(':', '.');
-            const endStr = String(item.end_time || '').slice(0, 5).replace(':', '.');
+            const startStr = String(item.start_time || '')
+              .slice(0, 5)
+              .replace(':', '.');
+            const endStr = String(item.end_time || '')
+              .slice(0, 5)
+              .replace(':', '.');
             const label = item.label || `${startStr} - ${endStr}`;
             const available =
               typeof item.available === 'boolean'
                 ? item.available
-                : Number(item.available_quota ?? 1) > 0 && Boolean(item.is_available ?? 1);
+                : Number(item.available_quota ?? 1) > 0 &&
+                  Boolean(item.is_available ?? 1);
 
             return {
               id: String(item.slot_id ?? item.id),
@@ -129,12 +130,8 @@ export function SchedulingPage() {
           setIsLive(true);
 
           // If current selected slot is not in the list or not available, select first available
-          if (!mapped.some((s) => s.id === selectedSlot && s.available)) {
-            const firstAvailable = mapped.find((s) => s.available);
-            if (firstAvailable) {
-              setSelectedSlot(firstAvailable.id);
-            }
-          }
+          const firstAvailable = mapped.find((s) => s.available);
+          setSelectedSlot(firstAvailable?.id ?? '');
         }
       })
       .catch(() => {
@@ -145,7 +142,7 @@ export function SchedulingPage() {
     return () => {
       mounted = false;
     };
-  }, [selectedDate, selectedDateInfo.fullDate]);
+  }, [selectedDateValue]);
 
   async function confirmSchedule(event) {
     event.preventDefault();
@@ -153,7 +150,7 @@ export function SchedulingPage() {
     if (!canSchedule || !slot?.available || !selectedDateInfo || !claim) return;
 
     setError('');
-    const scheduledTime = `${selectedDateInfo.heading}, 2026 • ${slot.label}`;
+    const scheduledTime = `${selectedDateInfo.full} • ${slot.label}`;
 
     // Attempt backend integration
     if (claim.claim_id || Number(claim.id)) {
@@ -161,7 +158,7 @@ export function SchedulingPage() {
         await createSchedule({
           claim_id: claim.claim_id ?? claim.id,
           slot_id: slot.slotId ?? (Number(slot.id) || 1),
-          scheduled_date: selectedDateInfo.fullDate,
+          scheduled_date: selectedDateInfo.date,
         });
       } catch (requestError) {
         console.warn('Backend scheduling note:', requestError);
@@ -172,10 +169,11 @@ export function SchedulingPage() {
       ...claim,
       status: 'SCHEDULED',
       schedule: {
-        date: `${selectedDateInfo.heading}, 2026`,
+        date: selectedDateInfo.full,
         time: slot.label,
         ticketId: `ET-${claim.id}`,
       },
+      scheduled_date: selectedDateInfo.date,
       steps: claim.steps?.map((step) =>
         step.key === 'SCHEDULED'
           ? { ...step, time: scheduledTime, complete: true }
@@ -217,7 +215,7 @@ export function SchedulingPage() {
           </div>
 
           <section className="scheduling-section" aria-labelledby="date-title">
-            <h2 id="date-title">Oktober 2026</h2>
+            <h2 id="date-title">Pilih tanggal pengambilan</h2>
             <div
               className="scheduling-date-list"
               role="radiogroup"
@@ -236,14 +234,16 @@ export function SchedulingPage() {
                     onChange={() => setSelectedDate(date.id)}
                   />
                   <span>{date.weekday}</span>
-                  <strong>{date.id}</strong>
+                  <strong>{date.date.slice(-2)}</strong>
                 </label>
               ))}
             </div>
           </section>
 
           <section className="scheduling-section" aria-labelledby="slot-title">
-            <h2 id="slot-title">Slot tersedia - {selectedDateInfo.heading}</h2>
+            <h2 id="slot-title">
+              Slot tersedia - {selectedDateInfo?.full ?? 'Pilih tanggal'}
+            </h2>
             <div
               className="scheduling-slot-list"
               role="radiogroup"
@@ -276,6 +276,7 @@ export function SchedulingPage() {
             className="scheduling-confirm"
             type="submit"
             disabled={
+              !selectedDateInfo ||
               !slots.find((slot) => slot.id === selectedSlot)?.available
             }
           >

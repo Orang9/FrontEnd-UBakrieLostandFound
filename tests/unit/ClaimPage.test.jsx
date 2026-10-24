@@ -5,10 +5,13 @@ import { ToastProvider } from '../../src/app/providers/ToastProvider.jsx';
 import { ClaimPage } from '../../src/features/claim/index.js';
 import { ProfilePage } from '../../src/features/profile/index.js';
 
-vi.mock('../../src/features/catalog/api/catalogApi.js', async (importOriginal) => {
-  const actual = await importOriginal();
-  return { ...actual, getCatalogItem: vi.fn() };
-});
+vi.mock(
+  '../../src/features/catalog/api/catalogApi.js',
+  async (importOriginal) => {
+    const actual = await importOriginal();
+    return { ...actual, getCatalogItem: vi.fn() };
+  },
+);
 vi.mock('../../src/features/claim/api/claimApi.js', () => ({
   createClaim: vi.fn(),
 }));
@@ -21,10 +24,12 @@ import { createClaim } from '../../src/features/claim/api/claimApi.js';
 import { getProfile } from '../../src/features/profile/api/profileApi.js';
 
 beforeEach(() => {
+  vi.clearAllMocks();
   localStorage.clear();
   getCatalogItem.mockResolvedValue({
     item_id: 'dompet-kartu-identitas',
     name: 'Dompet / kartu identitas',
+    image_path: 'public/uploads/dompet.jpg',
     report_type: 'found',
     status: 'available',
     category_name: 'Sensitif',
@@ -35,12 +40,15 @@ beforeEach(() => {
       'Warna / ciri khusus dompet',
     ],
   });
-  createClaim.mockResolvedValue({ claim_id: 'CL-0147' });
+  createClaim.mockResolvedValue({
+    status: 'success',
+    data: { claim_id: 147, status: 'pending' },
+  });
   getProfile.mockResolvedValue({
     data: {
       claims: [
         {
-          claim_id: 'CL-0147',
+          claim_id: 147,
           status: 'pending',
           item_name: 'Dompet / kartu identitas',
           item: {
@@ -60,6 +68,7 @@ beforeEach(() => {
           ],
         },
       ],
+      reports: [],
     },
   });
 });
@@ -91,6 +100,10 @@ describe('ClaimPage', () => {
     expect(
       screen.getByRole('heading', { name: 'Dompet / kartu identitas' }),
     ).toBeInTheDocument();
+    expect(document.querySelector('.claim-item-thumbnail img')).toHaveAttribute(
+      'src',
+      'http://localhost:5001/uploads/dompet.jpg',
+    );
     expect(
       screen.getByText('1. Sebutkan isi dompet selain kartu identitas'),
     ).toBeInTheDocument();
@@ -108,13 +121,24 @@ describe('ClaimPage', () => {
       category_name: 'Umum',
       location: 'Aula',
       report_date: '2026-10-21',
-      claim_questions: ['Pertanyaan satu?', 'Pertanyaan dua?', 'Pertanyaan tiga?'],
+      claim_questions: [
+        'Pertanyaan satu?',
+        'Pertanyaan dua?',
+        'Pertanyaan tiga?',
+      ],
     });
     renderClaimFlow('item-with-three-prompts');
 
-    expect(await screen.findByText('Jawab 3 pertanyaan kunci. Admin BEM akan meninjau jawaban secara manual sebelum klaim disetujui.'))
-      .toBeInTheDocument();
-    const questions = ['Pertanyaan satu?', 'Pertanyaan dua?', 'Pertanyaan tiga?'];
+    expect(
+      await screen.findByText(
+        'Jawab 3 pertanyaan kunci. Admin BEM akan meninjau jawaban secara manual sebelum klaim disetujui.',
+      ),
+    ).toBeInTheDocument();
+    const questions = [
+      'Pertanyaan satu?',
+      'Pertanyaan dua?',
+      'Pertanyaan tiga?',
+    ];
     questions.forEach((question, index) => {
       fireEvent.change(screen.getByLabelText(`${index + 1}. ${question}`), {
         target: { value: `Jawaban ${index + 1}` },
@@ -122,7 +146,9 @@ describe('ClaimPage', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Kirim Klaim' }));
 
-    expect(await screen.findByRole('heading', { name: 'Riwayat Saya' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Riwayat Saya' }),
+    ).toBeInTheDocument();
     expect(createClaim).toHaveBeenCalledOnce();
     expect(JSON.parse(createClaim.mock.calls[0][1].get('answers'))).toEqual([
       'Jawaban 1',
@@ -131,11 +157,17 @@ describe('ClaimPage', () => {
     ]);
   });
 
-  it('stores a pending claim locally and navigates to profile history', async () => {
+  it('submits despite malformed local preview history and uses the backend claim', async () => {
+    localStorage.setItem(
+      'ubakrie-lf-preview-claims',
+      JSON.stringify([{ id: 147, status: 'pending' }]),
+    );
     renderClaimFlow();
 
     fireEvent.change(
-      await screen.findByLabelText('1. Sebutkan isi dompet selain kartu identitas'),
+      await screen.findByLabelText(
+        '1. Sebutkan isi dompet selain kartu identitas',
+      ),
       { target: { value: 'Kartu ATM dan struk' } },
     );
     fireEvent.change(screen.getByLabelText('2. Warna / ciri khusus dompet'), {
@@ -152,8 +184,6 @@ describe('ClaimPage', () => {
     expect(
       screen.getByText(/Menunggu persetujuan Admin BEM \(PENDING\)/),
     ).toBeInTheDocument();
-    expect(
-      JSON.parse(localStorage.getItem('ubakrie-lf-preview-claims')),
-    ).toHaveLength(1);
+    expect(createClaim).toHaveBeenCalledOnce();
   });
 });

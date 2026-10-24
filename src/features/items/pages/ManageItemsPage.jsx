@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-  LockKeyhole,
-  PackageSearch,
-  RefreshCw,
-} from 'lucide-react';
+import { LockKeyhole, PackageSearch, RefreshCw } from 'lucide-react';
 import { useToast } from '../../../app/providers/ToastProvider.jsx';
 import { Button } from '../../../components/ui/Button.jsx';
+import { getMediaUrl } from '../../../lib/media.js';
 import {
   approveAdminItem,
   configureAdminItemVerificationQuestions,
@@ -43,49 +40,78 @@ export function ManageItemsPage() {
     try {
       const response = await getAdminItems({ review_status: 'all' });
       const items = response.data || [];
-      setReports(items.map((item) => ({
-        id: item.item_id,
-        type: item.report_type === 'lost' ? 'Hilang' : 'Temuan',
-        name: item.name,
-        category: item.is_sensitive ? 'Sensitif' : 'Umum',
-        categoryDetail: item.category_name || '-',
-        location: item.location || item.lost_location || item.found_location || '-',
-        date: formatShortDate(item.report_date || item.lost_date || item.found_date || item.created_at),
-        reporter: item.reporter_name || item.finder_name || item.owner_name || '-',
-        nim: item.reporter_nim || item.finder_nim || item.owner_nim || '-',
-        description: item.description || '',
-        reportType: item.report_type,
-        claimQuestions: item.claim_questions || [],
-        claimQuestionCount: Number(item.claim_question_count || item.claim_questions?.length || 0),
-        icon: PackageSearch,
-        status: item.report_review_status === 'rejected'
-          ? 'Ditolak'
-          : item.report_review_status === 'accepted'
-            ? 'Diterima'
-            : 'Pending',
-        backendStatus: item.report_review_status,
-        rejection: item.rejection_reason ? {
-          reason: item.rejection_reason,
-          note: item.rejection_note,
-          by: item.rejected_by || '-',
-          at: item.rejected_at || '-',
-        } : undefined,
-      })));
+      setReports(
+        items.map((item) => ({
+          id: item.item_id,
+          imageUrl: getMediaUrl(item.image_url ?? item.image_path),
+          type: item.report_type === 'lost' ? 'Hilang' : 'Temuan',
+          name: item.name,
+          category: item.is_sensitive ? 'Sensitif' : 'Umum',
+          categoryDetail: item.category_name || '-',
+          location:
+            item.location || item.lost_location || item.found_location || '-',
+          date: formatShortDate(
+            item.report_date ||
+              item.lost_date ||
+              item.found_date ||
+              item.created_at,
+          ),
+          reporter:
+            item.reporter_name || item.finder_name || item.owner_name || '-',
+          nim: item.reporter_nim || item.finder_nim || item.owner_nim || '-',
+          description: item.description || '',
+          reportType: item.report_type,
+          claimQuestions: item.claim_questions || [],
+          claimQuestionCount: Number(
+            item.claim_question_count || item.claim_questions?.length || 0,
+          ),
+          icon: PackageSearch,
+          status:
+            item.report_review_status === 'rejected'
+              ? 'Ditolak'
+              : item.report_review_status === 'accepted'
+                ? 'Diterima'
+                : 'Pending',
+          backendStatus: item.report_review_status,
+          rejection: item.rejection_reason
+            ? {
+                reason: item.rejection_reason,
+                note: item.rejection_note,
+                by: item.rejected_by || '-',
+                at: item.rejected_at || '-',
+              }
+            : undefined,
+        })),
+      );
       setError('');
     } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Data laporan tidak dapat dimuat.');
+      setError(
+        requestError.response?.data?.message ||
+          'Data laporan tidak dapat dimuat.',
+      );
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => { refreshReports(); }, []);
+  useEffect(() => {
+    refreshReports();
+  }, []);
 
   const statusFilters = [
     { id: 'Semua', count: reports.length },
-    { id: 'Pending', count: reports.filter((report) => report.status === 'Pending').length },
-    { id: 'Diterima', count: reports.filter((report) => report.status === 'Diterima').length },
-    { id: 'Ditolak', count: reports.filter((report) => report.status === 'Ditolak').length },
+    {
+      id: 'Pending',
+      count: reports.filter((report) => report.status === 'Pending').length,
+    },
+    {
+      id: 'Diterima',
+      count: reports.filter((report) => report.status === 'Diterima').length,
+    },
+    {
+      id: 'Ditolak',
+      count: reports.filter((report) => report.status === 'Ditolak').length,
+    },
   ];
 
   const visibleReports = useMemo(
@@ -101,23 +127,31 @@ export function ManageItemsPage() {
 
   function openQuestionEditor(report) {
     setQuestionEditorId(report.id);
-    setQuestionDraft(report.claimQuestions.length ? [...report.claimQuestions] : ['']);
+    setQuestionDraft(
+      report.claimQuestions.length ? [...report.claimQuestions] : [''],
+    );
   }
 
   function updateQuestion(index, value) {
-    setQuestionDraft((current) => current.map((question, questionIndex) =>
-      questionIndex === index ? value : question
-    ));
+    setQuestionDraft((current) =>
+      current.map((question, questionIndex) =>
+        questionIndex === index ? value : question,
+      ),
+    );
   }
 
   function addQuestion() {
-    setQuestionDraft((current) => current.length < 10 ? [...current, ''] : current);
+    setQuestionDraft((current) =>
+      current.length < 10 ? [...current, ''] : current,
+    );
   }
 
   function removeQuestion(index) {
-    setQuestionDraft((current) => current.length > 1
-      ? current.filter((_, questionIndex) => questionIndex !== index)
-      : current);
+    setQuestionDraft((current) =>
+      current.length > 1
+        ? current.filter((_, questionIndex) => questionIndex !== index)
+        : current,
+    );
   }
 
   async function saveVerificationQuestions(event, report) {
@@ -128,7 +162,10 @@ export function ManageItemsPage() {
       questions.length > 10 ||
       questions.some((question) => !question || question.length > 500)
     ) {
-      notify('Masukkan 1–10 pertanyaan, masing-masing maksimal 500 karakter.', 'error');
+      notify(
+        'Masukkan 1–10 pertanyaan, masing-masing maksimal 500 karakter.',
+        'error',
+      );
       return;
     }
 
@@ -136,7 +173,10 @@ export function ManageItemsPage() {
     try {
       if (report.status === 'Pending') {
         await approveAdminItem(report.id, questions);
-        notify('Pertanyaan tersimpan dan laporan berhasil diterima.', 'success');
+        notify(
+          'Pertanyaan tersimpan dan laporan berhasil diterima.',
+          'success',
+        );
       } else {
         await configureAdminItemVerificationQuestions(report.id, questions);
         notify('Pertanyaan verifikasi berhasil disimpan.', 'success');
@@ -145,7 +185,8 @@ export function ManageItemsPage() {
       await refreshReports();
     } catch (requestError) {
       notify(
-        requestError.response?.data?.message || 'Pertanyaan verifikasi gagal disimpan.',
+        requestError.response?.data?.message ||
+          'Pertanyaan verifikasi gagal disimpan.',
         'error',
       );
     } finally {
@@ -163,7 +204,10 @@ export function ManageItemsPage() {
       notify('Laporan berhasil diterima.', 'success');
       await refreshReports();
     } catch (requestError) {
-      notify(requestError.response?.data?.message || 'Laporan gagal diterima.', 'error');
+      notify(
+        requestError.response?.data?.message || 'Laporan gagal diterima.',
+        'error',
+      );
     }
   }
 
@@ -183,10 +227,12 @@ export function ManageItemsPage() {
         notify('Laporan berhasil ditolak.', 'success');
         return refreshReports();
       })
-      .catch((requestError) => notify(
-        requestError.response?.data?.message || 'Laporan gagal ditolak.',
-        'error',
-      ));
+      .catch((requestError) =>
+        notify(
+          requestError.response?.data?.message || 'Laporan gagal ditolak.',
+          'error',
+        ),
+      );
   }
 
   function reviewAgain(reportId) {
@@ -196,10 +242,12 @@ export function ManageItemsPage() {
         notify('Laporan dikembalikan untuk ditinjau.', 'success');
         return refreshReports();
       })
-      .catch((requestError) => notify(
-        requestError.response?.data?.message || 'Laporan gagal dipulihkan.',
-        'error',
-      ));
+      .catch((requestError) =>
+        notify(
+          requestError.response?.data?.message || 'Laporan gagal dipulihkan.',
+          'error',
+        ),
+      );
   }
 
   return (
@@ -257,7 +305,15 @@ export function ManageItemsPage() {
         role="tabpanel"
         aria-labelledby={`admin-items-filter-${activeFilter.toLowerCase()}`}
       >
-        {loading ? <section className="admin-panel admin-item-empty"><p>Memuat laporan...</p></section> : error ? <section className="admin-panel admin-item-empty"><p role="alert">{error}</p></section> : visibleReports.length ? (
+        {loading ? (
+          <section className="admin-panel admin-item-empty">
+            <p>Memuat laporan...</p>
+          </section>
+        ) : error ? (
+          <section className="admin-panel admin-item-empty">
+            <p role="alert">{error}</p>
+          </section>
+        ) : visibleReports.length ? (
           visibleReports.map((report) => {
             const ThumbnailIcon = report.icon;
             const isRejecting = rejectingId === report.id;
@@ -270,7 +326,11 @@ export function ManageItemsPage() {
                     className={`admin-item-thumbnail${report.category === 'Sensitif' ? ' is-sensitive' : ''}${report.status === 'Ditolak' ? ' is-rejected' : ''}`}
                     aria-hidden="true"
                   >
-                    <ThumbnailIcon size={30} />
+                    {report.imageUrl ? (
+                      <img src={report.imageUrl} alt="" loading="lazy" />
+                    ) : (
+                      <ThumbnailIcon size={30} />
+                    )}
                     {report.category === 'Sensitif' && (
                       <span className="admin-item-blind-listing">
                         <LockKeyhole size={16} />
@@ -390,21 +450,27 @@ export function ManageItemsPage() {
                 {isEditingQuestions && (
                   <form
                     className="admin-item-verification-form"
-                    onSubmit={(event) => saveVerificationQuestions(event, report)}
+                    onSubmit={(event) =>
+                      saveVerificationQuestions(event, report)
+                    }
                   >
                     <div className="admin-item-verification-heading">
                       <div>
                         <h3>Pertanyaan verifikasi kepemilikan</h3>
                         <p>
                           Pemohon klaim akan menjawab pertanyaan ini. Isi 1–10
-                          pertanyaan; jawaban akan diperiksa manual oleh Admin BEM.
+                          pertanyaan; jawaban akan diperiksa manual oleh Admin
+                          BEM.
                         </p>
                       </div>
                       <span>{questionDraft.length}/10</span>
                     </div>
                     <div className="admin-item-verification-fields">
                       {questionDraft.map((question, index) => (
-                        <label className="admin-field" key={`${report.id}-question-${index}`}>
+                        <label
+                          className="admin-field"
+                          key={`${report.id}-question-${index}`}
+                        >
                           Pertanyaan {index + 1}
                           <textarea
                             name="verification-question"
@@ -412,7 +478,9 @@ export function ManageItemsPage() {
                             maxLength={500}
                             required
                             value={question}
-                            onChange={(event) => updateQuestion(index, event.target.value)}
+                            onChange={(event) =>
+                              updateQuestion(index, event.target.value)
+                            }
                             placeholder="Contoh: Apa ciri khusus barang yang tidak terlihat pada foto?"
                           />
                           {questionDraft.length > 1 && (
@@ -431,7 +499,10 @@ export function ManageItemsPage() {
                       <Button
                         variant="secondary"
                         type="button"
-                        disabled={questionDraft.length >= 10 || Boolean(savingQuestionItemId)}
+                        disabled={
+                          questionDraft.length >= 10 ||
+                          Boolean(savingQuestionItemId)
+                        }
                         onClick={addQuestion}
                       >
                         Tambah Pertanyaan
@@ -445,7 +516,10 @@ export function ManageItemsPage() {
                       >
                         Batal
                       </Button>
-                      <Button type="submit" disabled={Boolean(savingQuestionItemId)}>
+                      <Button
+                        type="submit"
+                        disabled={Boolean(savingQuestionItemId)}
+                      >
                         {savingQuestionItemId === report.id
                           ? 'Menyimpan...'
                           : report.status === 'Pending'
@@ -510,9 +584,7 @@ export function ManageItemsPage() {
         ) : (
           <section className="admin-panel admin-item-empty">
             <h2>Tidak ada laporan {activeFilter.toLowerCase()}</h2>
-            <p>
-              Belum ada laporan dengan status ini.
-            </p>
+            <p>Belum ada laporan dengan status ini.</p>
           </section>
         )}
       </section>

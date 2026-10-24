@@ -1,31 +1,41 @@
-import { Download, FileBarChart2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { KpiCard } from '../../../components/domain/KpiCard.jsx';
-import { useToast } from '../../../app/providers/ToastProvider.jsx';
 import { getDashboardSummary } from '../api/dashboardApi.js';
 
 export function DashboardPage() {
-  const { notify } = useToast();
   const [dashboard, setDashboard] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
     getDashboardSummary()
       .then((response) => setDashboard(response.data))
-      .catch((requestError) => setError(requestError.response?.data?.message || 'Dashboard tidak dapat dimuat.'));
+      .catch((requestError) =>
+        setError(
+          requestError.response?.data?.message ||
+            'Dashboard tidak dapat dimuat.',
+        ),
+      );
   }, []);
 
   const itemSummary = dashboard?.items || {};
   const distribution = [
-    { label: 'Laporan aktif', count: itemSummary.active_lost || 0, tone: 'info' },
-    { label: 'Tersedia', count: itemSummary.available_found || 0, tone: 'success' },
+    {
+      label: 'Laporan aktif',
+      count: itemSummary.active_lost || 0,
+      tone: 'info',
+    },
+    {
+      label: 'Tersedia',
+      count: itemSummary.available_found || 0,
+      tone: 'success',
+    },
     { label: 'Diklaim', count: itemSummary.claimed || 0, tone: 'info' },
-    { label: 'Didonasikan / Diarsipkan', count: itemSummary.donated || 0, tone: 'muted' },
+    {
+      label: 'Didonasikan / Diarsipkan',
+      count: itemSummary.donated || 0,
+      tone: 'muted',
+    },
   ];
-
-  function notifyPreview() {
-    notify('Ekspor laporan tersedia setelah integrasi backend.', 'info');
-  }
 
   return (
     <div className="admin-page dashboard-page">
@@ -39,6 +49,11 @@ export function DashboardPage() {
         </div>
         <span className="admin-preview-label">Data database</span>
       </header>
+      {error && (
+        <p className="admin-data-note" role="alert">
+          {error}
+        </p>
+      )}
 
       <section className="dashboard-kpis" aria-label="Metrik utama">
         <KpiCard
@@ -48,7 +63,11 @@ export function DashboardPage() {
         />
         <KpiCard
           label="Rasio Klaim Berhasil"
-          value={dashboard?.claims?.success_rate_percentage ? `${dashboard.claims.success_rate_percentage}%` : '-'}
+          value={
+            dashboard?.claims?.success_rate_percentage
+              ? `${dashboard.claims.success_rate_percentage}%`
+              : '-'
+          }
           detail="Rasio klaim berhasil"
         />
         <KpiCard
@@ -86,7 +105,7 @@ export function DashboardPage() {
                   <div className="dashboard-chart-bars">
                     <span
                       className="dashboard-chart-bar is-reports"
-                      style={{ height: `${Math.min(count, 30) / 30 * 100}%` }}
+                      style={{ height: `${(Math.min(count, 30) / 30) * 100}%` }}
                       title={`${count} barang`}
                     />
                     <span
@@ -126,59 +145,15 @@ export function DashboardPage() {
                 >
                   <span
                     className={`dashboard-progress-fill tone-${status.tone}`}
-                    style={{ width: `${((status.count / (itemSummary.total_items || 1)) * 100)}%` }}
+                    style={{
+                      width: `${(status.count / (itemSummary.total_items || 1)) * 100}%`,
+                    }}
                   />
                 </div>
               </div>
             ))}
           </div>
         </article>
-      </section>
-
-      <section className="admin-panel dashboard-batch-panel">
-        <div className="admin-panel-heading dashboard-batch-heading">
-          <div>
-            <h2>Barang di Pos Satpam</h2>
-            <p>Batch mingguan yang perlu dipindahkan ke lemari</p>
-          </div>
-          <div className="admin-panel-actions">
-            <button
-              className="button button-secondary"
-              type="button"
-              onClick={notifyPreview}
-            >
-              <Download size={16} aria-hidden="true" />
-              Unduh PDF Bulanan
-            </button>
-            <button
-              className="button button-secondary"
-              type="button"
-              onClick={notifyPreview}
-            >
-              <FileBarChart2 size={16} aria-hidden="true" />
-              Agregasi Laporan Tahunan
-            </button>
-          </div>
-        </div>
-        <div className="admin-table-wrap">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th scope="col">ID Barang</th>
-                <th scope="col">Nama Barang</th>
-                <th scope="col">Lokasi Penyimpanan</th>
-                <th scope="col">Tanggal Masuk</th>
-                <th scope="col">Status Batch</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td colSpan="5">Daftar batch belum disediakan oleh API dashboard.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        {error && <p className="admin-data-note" role="alert">{error}</p>}
       </section>
     </div>
   );

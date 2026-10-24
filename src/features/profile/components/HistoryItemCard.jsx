@@ -29,7 +29,11 @@ export function HistoryItemCard({
           className={`profile-history-thumbnail${item.category === 'Sensitif' ? ' is-sensitive' : ` tone-${item.icon}`}`}
           aria-hidden="true"
         >
-          <Icon size={27} strokeWidth={1.8} />
+          {item.imageUrl ? (
+            <img src={item.imageUrl} alt="" loading="lazy" />
+          ) : (
+            <Icon size={27} strokeWidth={1.8} />
+          )}
         </div>
         <div className="profile-history-summary">
           <h2>{item.name}</h2>

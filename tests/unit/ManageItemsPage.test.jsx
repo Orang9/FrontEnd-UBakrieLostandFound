@@ -32,6 +32,7 @@ const reports = [
     report_type: 'found',
     report_review_status: 'pending',
     name: 'Tas ransel hitam',
+    image_path: 'public/uploads/tas.jpg',
     category_name: 'Tas',
     found_location: 'Aula',
     found_date: '2026-10-12',
@@ -74,7 +75,9 @@ function renderManageItems() {
 beforeEach(() => {
   getAdminItems.mockResolvedValue({ data: reports });
   approveAdminItem.mockResolvedValue({ status: 'success' });
-  configureAdminItemVerificationQuestions.mockResolvedValue({ status: 'success' });
+  configureAdminItemVerificationQuestions.mockResolvedValue({
+    status: 'success',
+  });
   rejectAdminItem.mockResolvedValue({ status: 'success' });
   restoreAdminItem.mockResolvedValue({ status: 'success' });
 });
@@ -87,54 +90,79 @@ afterEach(() => {
 describe('ManageItemsPage verification questions', () => {
   it('requires questions before accepting found reports', async () => {
     renderManageItems();
-    const report = (await screen.findByRole('heading', { name: 'Tas ransel hitam' }))
-      .closest('article');
+    const report = (
+      await screen.findByRole('heading', { name: 'Tas ransel hitam' })
+    ).closest('article');
 
-    fireEvent.click(within(report).getByRole('button', { name: 'Terima & Catat' }));
+    expect(report.querySelector('.admin-item-thumbnail img')).toHaveAttribute(
+      'src',
+      'http://localhost:5001/uploads/tas.jpg',
+    );
+
+    fireEvent.click(
+      within(report).getByRole('button', { name: 'Terima & Catat' }),
+    );
 
     expect(approveAdminItem).not.toHaveBeenCalled();
     expect(
-      within(report).getByRole('heading', { name: 'Pertanyaan verifikasi kepemilikan' }),
+      within(report).getByRole('heading', {
+        name: 'Pertanyaan verifikasi kepemilikan',
+      }),
     ).toBeInTheDocument();
     expect(within(report).getByLabelText('Pertanyaan 1')).toBeRequired();
 
     fireEvent.change(within(report).getByLabelText('Pertanyaan 1'), {
       target: { value: 'Apa ciri khusus barang ini?' },
     });
-    fireEvent.click(within(report).getByRole('button', { name: 'Simpan & Terima' }));
+    fireEvent.click(
+      within(report).getByRole('button', { name: 'Simpan & Terima' }),
+    );
 
-    expect(approveAdminItem).toHaveBeenCalledWith(11, ['Apa ciri khusus barang ini?']);
+    expect(approveAdminItem).toHaveBeenCalledWith(11, [
+      'Apa ciri khusus barang ini?',
+    ]);
   });
 
   it('allows Admin BEM to configure verification questions for legacy accepted items', async () => {
     renderManageItems();
     fireEvent.click(await screen.findByRole('tab', { name: 'Diterima 1' }));
-    const report = (await screen.findByRole('heading', { name: 'Dompet hitam' }))
-      .closest('article');
+    const report = (
+      await screen.findByRole('heading', { name: 'Dompet hitam' })
+    ).closest('article');
 
-    fireEvent.click(within(report).getByRole('button', { name: 'Atur Pertanyaan Klaim' }));
+    fireEvent.click(
+      within(report).getByRole('button', { name: 'Atur Pertanyaan Klaim' }),
+    );
     fireEvent.change(within(report).getByLabelText('Pertanyaan 1'), {
       target: { value: 'Sebutkan isi dompet.' },
     });
-    fireEvent.click(within(report).getByRole('button', { name: 'Simpan Pertanyaan' }));
-
-    expect(configureAdminItemVerificationQuestions).toHaveBeenCalledWith(
-      13,
-      ['Sebutkan isi dompet.'],
+    fireEvent.click(
+      within(report).getByRole('button', { name: 'Simpan Pertanyaan' }),
     );
+
+    expect(configureAdminItemVerificationQuestions).toHaveBeenCalledWith(13, [
+      'Sebutkan isi dompet.',
+    ]);
   });
 
   it('allows found reports to have no more than ten questions', async () => {
     renderManageItems();
-    const report = (await screen.findByRole('heading', { name: 'Tas ransel hitam' }))
-      .closest('article');
-    fireEvent.click(within(report).getByRole('button', { name: 'Terima & Catat' }));
+    const report = (
+      await screen.findByRole('heading', { name: 'Tas ransel hitam' })
+    ).closest('article');
+    fireEvent.click(
+      within(report).getByRole('button', { name: 'Terima & Catat' }),
+    );
 
     for (let count = 1; count < 10; count += 1) {
-      fireEvent.click(within(report).getByRole('button', { name: 'Tambah Pertanyaan' }));
+      fireEvent.click(
+        within(report).getByRole('button', { name: 'Tambah Pertanyaan' }),
+      );
     }
 
-    expect(within(report).getAllByLabelText(/^Pertanyaan \d+$/)).toHaveLength(10);
+    expect(within(report).getAllByLabelText(/^Pertanyaan \d+$/)).toHaveLength(
+      10,
+    );
     expect(
       within(report).getByRole('button', { name: 'Tambah Pertanyaan' }),
     ).toBeDisabled();
@@ -142,13 +170,18 @@ describe('ManageItemsPage verification questions', () => {
 
   it('accepts lost reports without verification questions', async () => {
     renderManageItems();
-    const report = (await screen.findByRole('heading', { name: 'Payung biru' }))
-      .closest('article');
-    fireEvent.click(within(report).getByRole('button', { name: 'Terima & Catat' }));
+    const report = (
+      await screen.findByRole('heading', { name: 'Payung biru' })
+    ).closest('article');
+    fireEvent.click(
+      within(report).getByRole('button', { name: 'Terima & Catat' }),
+    );
 
     expect(approveAdminItem).toHaveBeenCalledWith(12);
     expect(
-      within(report).queryByRole('heading', { name: 'Pertanyaan verifikasi kepemilikan' }),
+      within(report).queryByRole('heading', {
+        name: 'Pertanyaan verifikasi kepemilikan',
+      }),
     ).not.toBeInTheDocument();
   });
 });

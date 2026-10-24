@@ -6,53 +6,43 @@ import {
   updateAdminSlot,
 } from '../api/schedulingApi.js';
 import { getAdminClaims } from '../../admin/api/adminApi.js';
+import { getScheduleDates } from '../lib/scheduleDates.js';
 
-const dates = [
-  { id: '12', weekday: 'Sen', full: 'Senin, 12 Okt', date: '2026-10-12', day: 'Monday' },
-  { id: '13', weekday: 'Sel', full: 'Selasa, 13 Okt', date: '2026-10-13', day: 'Tuesday' },
-  { id: '14', weekday: 'Rab', full: 'Rabu, 14 Okt', date: '2026-10-14', day: 'Wednesday' },
-  { id: '15', weekday: 'Kam', full: 'Kamis, 15 Okt', date: '2026-10-15', day: 'Thursday' },
-  { id: '16', weekday: 'Jum', full: 'Jumat, 16 Okt', date: '2026-10-16', day: 'Friday' },
-];
+const dates = getScheduleDates();
 
-const dayToDateId = {
-  Monday: '12',
-  Tuesday: '13',
-  Wednesday: '14',
-  Thursday: '15',
-  Friday: '16',
-};
-
-const initialSlots = [
-  {
-    id: 'slot-1',
-    date: '14',
-    time: '09.00 - 10.00',
-    status: 'Tersedia',
-    applicant: '-',
-  },
-  {
-    id: 'slot-2',
-    date: '14',
-    time: '10.00 - 11.00',
-    status: 'Penuh',
-    applicant: 'Raka Pratama',
-  },
-  {
-    id: 'slot-3',
-    date: '14',
-    time: '11.00 - 12.00',
-    status: 'Terjadwal',
-    applicant: 'Najwa Naela Fawwaz',
-  },
-  {
-    id: 'slot-4',
-    date: '14',
-    time: '13.00 - 14.00',
-    status: 'Tersedia',
-    applicant: '-',
-  },
-];
+function createInitialSlots(date) {
+  if (!date) return [];
+  return [
+    {
+      id: 'slot-1',
+      date,
+      time: '09.00 - 10.00',
+      status: 'Tersedia',
+      applicant: '-',
+    },
+    {
+      id: 'slot-2',
+      date,
+      time: '10.00 - 11.00',
+      status: 'Penuh',
+      applicant: 'Raka Pratama',
+    },
+    {
+      id: 'slot-3',
+      date,
+      time: '11.00 - 12.00',
+      status: 'Terjadwal',
+      applicant: 'Najwa Naela Fawwaz',
+    },
+    {
+      id: 'slot-4',
+      date,
+      time: '13.00 - 14.00',
+      status: 'Tersedia',
+      applicant: '-',
+    },
+  ];
+}
 
 function statusTone(status) {
   if (status === 'Penuh') return 'tone-muted';
@@ -62,18 +52,17 @@ function statusTone(status) {
 }
 
 export function AdminSchedulingPage() {
-  const [selectedDate, setSelectedDate] = useState('14');
-  const [slots, setSlots] = useState(initialSlots);
+  const [selectedDate, setSelectedDate] = useState(dates[0]?.id ?? '');
+  const [slots, setSlots] = useState(() => createInitialSlots(dates[0]?.id));
   const [isLive, setIsLive] = useState(false);
   const [activeView, setActiveView] = useState('schedule');
   const [newSlot, setNewSlot] = useState({
-    date: '2026-10-14',
+    date: dates[0]?.date ?? '',
     start: '09:00',
     end: '10:00',
   });
   const { notify } = useToast();
-  const selectedDateInfo =
-    dates.find((date) => date.id === selectedDate) ?? dates[2];
+  const selectedDateInfo = dates.find((date) => date.id === selectedDate);
   const visibleSlots = slots.filter((slot) => slot.date === selectedDate);
 
   async function loadSlots() {
@@ -86,11 +75,11 @@ export function AdminSchedulingPage() {
       if (slotsRes.status === 'fulfilled' && slotsRes.value?.data) {
         const backendSlots = slotsRes.value.data;
         const backendClaims =
-          claimsRes.status === 'fulfilled' && Array.isArray(claimsRes.value?.data)
+          claimsRes.status === 'fulfilled' &&
+          Array.isArray(claimsRes.value?.data)
             ? claimsRes.value.data
             : [];
 
-        // Map claim bookings by slot_id and dateId
         const scheduledMap = new Map();
         for (const claim of backendClaims) {
           if (
@@ -100,23 +89,29 @@ export function AdminSchedulingPage() {
             const dateStr = claim.scheduled_date
               ? String(claim.scheduled_date).slice(0, 10)
               : '';
-            const dateId = dateStr ? dateStr.slice(-2) : '';
-            const key = `${claim.scheduled_slot_id}-${dateId}`;
+            const key = `${claim.scheduled_slot_id}-${dateStr}`;
             scheduledMap.set(key, claim.claimer_name || 'Pemohon');
           }
         }
 
         const mapped = [];
         for (const slot of backendSlots) {
-          const startTime = String(slot.start_time || '').slice(0, 5).replace(':', '.');
-          const endTime = String(slot.end_time || '').slice(0, 5).replace(':', '.');
+          const startTime = String(slot.start_time || '')
+            .slice(0, 5)
+            .replace(':', '.');
+          const endTime = String(slot.end_time || '')
+            .slice(0, 5)
+            .replace(':', '.');
           const timeFormatted = `${startTime} - ${endTime}`;
           const isClosed = !slot.is_active;
 
           if (slot.slot_date) {
             const slotDateStr = String(slot.slot_date).slice(0, 10);
-            const dateId = slotDateStr.slice(-2);
-            const scheduledApplicant = scheduledMap.get(`${slot.slot_id}-${dateId}`);
+            const dateInfo = dates.find((date) => date.id === slotDateStr);
+            if (!dateInfo) continue;
+            const scheduledApplicant = scheduledMap.get(
+              `${slot.slot_id}-${slotDateStr}`,
+            );
             let status = 'Tersedia';
             if (isClosed) status = 'Ditutup';
             else if (scheduledApplicant) status = 'Terjadwal';
@@ -125,25 +120,29 @@ export function AdminSchedulingPage() {
             mapped.push({
               id: String(slot.slot_id),
               rawId: slot.slot_id,
-              date: dateId,
+              date: slotDateStr,
               time: timeFormatted,
               status,
               applicant: scheduledApplicant || slot.claimant_name || '-',
               isActive: Boolean(slot.is_active),
             });
           } else if (slot.day_of_week) {
-            const dateId = dayToDateId[slot.day_of_week];
-            if (dateId) {
-              const scheduledApplicant = scheduledMap.get(`${slot.slot_id}-${dateId}`);
+            const matchingDates = dates.filter(
+              (date) => date.day === slot.day_of_week,
+            );
+            for (const dateInfo of matchingDates) {
+              const scheduledApplicant = scheduledMap.get(
+                `${slot.slot_id}-${dateInfo.date}`,
+              );
               let status = 'Tersedia';
               if (isClosed) status = 'Ditutup';
               else if (scheduledApplicant) status = 'Terjadwal';
               else if (slot.booked_count >= slot.max_quota) status = 'Penuh';
 
               mapped.push({
-                id: `${slot.slot_id}-${dateId}`,
+                id: `${slot.slot_id}-${dateInfo.id}`,
                 rawId: slot.slot_id,
-                date: dateId,
+                date: dateInfo.id,
                 time: timeFormatted,
                 status,
                 applicant: scheduledApplicant || slot.claimant_name || '-',
@@ -153,10 +152,8 @@ export function AdminSchedulingPage() {
           }
         }
 
-        if (mapped.length > 0) {
-          setSlots(mapped);
-          setIsLive(true);
-        }
+        setSlots(mapped);
+        setIsLive(true);
       }
     } catch {
       // Keep initialSlots if loading fails
@@ -169,11 +166,11 @@ export function AdminSchedulingPage() {
 
   async function addSlot(event) {
     event.preventDefault();
-    const dateId = newSlot.date.slice(-2);
-    if (!dates.some((date) => date.id === dateId)) {
-      notify('Tanggal preview harus berada pada 12-16 Oktober 2026.', 'error');
+    if (!dates.some((date) => date.id === newSlot.date)) {
+      notify('Pilih tanggal yang tersedia pada periode jadwal.', 'error');
       return;
     }
+    const dateId = newSlot.date;
     if (newSlot.start >= newSlot.end) {
       notify('Jam selesai harus setelah jam mulai.', 'error');
       return;
@@ -316,7 +313,7 @@ export function AdminSchedulingPage() {
           <div className="admin-panel-heading">
             <div>
               <h2 id="admin-slot-list-title">Jadwal Slot</h2>
-              <p>{selectedDateInfo.full}, 2026</p>
+              <p>{selectedDateInfo?.full ?? 'Tidak ada tanggal tersedia'}</p>
             </div>
           </div>
           <div
@@ -337,7 +334,7 @@ export function AdminSchedulingPage() {
                   onChange={() => setSelectedDate(date.id)}
                 />
                 <span>{date.weekday}</span>
-                <strong>{date.id}</strong>
+                <strong>{date.date.slice(-2)}</strong>
               </label>
             ))}
           </div>
@@ -450,6 +447,8 @@ export function AdminSchedulingPage() {
               <input
                 type="date"
                 value={newSlot.date}
+                min={dates[0]?.date}
+                max={dates.at(-1)?.date}
                 onChange={(event) =>
                   setNewSlot((current) => ({
                     ...current,
@@ -496,6 +495,7 @@ export function AdminSchedulingPage() {
           <aside className="admin-hours-note">
             <strong>Jam operasional</strong>
             <p>Senin - Jumat, 09.00 - 15.00 WIB</p>
+            <p>Tanggal slot mengikuti periode jadwal yang tersedia.</p>
           </aside>
           <p className="admin-data-note">
             {isLive

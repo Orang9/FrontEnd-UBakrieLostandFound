@@ -9,7 +9,12 @@ import {
 } from 'lucide-react';
 import { StatusBadge } from '../../../components/domain/StatusBadge.jsx';
 import { useToast } from '../../../app/providers/ToastProvider.jsx';
-import { getAdminClaims, processAdminClaim } from '../../admin/api/adminApi.js';
+import { getMediaUrl } from '../../../lib/media.js';
+import {
+  getAdminClaims,
+  getClaimEvidence,
+  processAdminClaim,
+} from '../../admin/api/adminApi.js';
 
 const statusTabs = [
   { id: 'PENDING', label: 'PENDING' },
@@ -43,12 +48,42 @@ function ClaimListCard({ claim, selected, onSelect }) {
 
 function ClaimDetail({ claim, onBack, onAction }) {
   const [manualVerified, setManualVerified] = useState(false);
+  const [evidenceImage, setEvidenceImage] = useState('');
+  const [evidenceError, setEvidenceError] = useState('');
   const ClaimIcon =
     claim.icon === 'wallet'
       ? Wallet
       : claim.icon === 'key'
         ? KeyRound
         : Backpack;
+
+  useEffect(() => {
+    if (!claim.evidenceUrl) {
+      setEvidenceImage('');
+      setEvidenceError('');
+      return undefined;
+    }
+
+    let active = true;
+    let objectUrl = '';
+    setEvidenceImage('');
+    setEvidenceError('');
+
+    getClaimEvidence(claim.id)
+      .then((blob) => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        setEvidenceImage(objectUrl);
+      })
+      .catch(() => {
+        if (active) setEvidenceError('Bukti kepemilikan tidak dapat dimuat.');
+      });
+
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [claim.evidenceUrl, claim.id]);
 
   return (
     <article className="admin-panel review-claim-detail">
@@ -73,7 +108,9 @@ function ClaimDetail({ claim, onBack, onAction }) {
               : 'Pratinjau barang'
           }
         >
-          {claim.category === 'Sensitif' ? (
+          {claim.imageUrl ? (
+            <img src={claim.imageUrl} alt={`Foto ${claim.item}`} />
+          ) : claim.category === 'Sensitif' ? (
             <LockKeyhole size={28} aria-hidden="true" />
           ) : (
             <ClaimIcon size={28} aria-hidden="true" />
@@ -107,10 +144,18 @@ function ClaimDetail({ claim, onBack, onAction }) {
 
       <section className="review-evidence">
         <h3>Bukti kepemilikan</h3>
-        {claim.evidence ? (
-          <a href="#claim-evidence" onClick={(event) => event.preventDefault()}>
-            {claim.evidence}
-          </a>
+        {evidenceImage ? (
+          <img
+            className="review-evidence-image"
+            src={evidenceImage}
+            alt={`Bukti kepemilikan klaim ${claim.id}`}
+          />
+        ) : evidenceError ? (
+          <p role="alert">{evidenceError}</p>
+        ) : claim.evidence && !claim.evidenceUrl ? (
+          <p role="alert">Bukti kepemilikan tidak dapat dimuat.</p>
+        ) : claim.evidence ? (
+          <p role="status">Memuat bukti kepemilikan...</p>
         ) : (
           <p>Pemohon tidak melampirkan bukti tambahan.</p>
         )}
@@ -173,22 +218,37 @@ export function ReviewClaimsPage() {
         item: claim.item_name,
         applicant: claim.claimer_name,
         category: claim.is_sensitive ? 'Sensitif' : 'Umum',
-        status: claim.status === 'verified' ? 'APPROVED' : claim.status.toUpperCase(),
+        status:
+          claim.status === 'verified' ? 'APPROVED' : claim.status.toUpperCase(),
         icon: 'backpack',
+        imageUrl: getMediaUrl(
+          claim.image_url ?? claim.image_path ?? claim.item_image_path,
+        ),
+        evidenceUrl: claim.evidence_url,
         questions: claim.verification_answers?.length
-          ? claim.verification_answers.map(({ question, answer }) => [question, answer])
+          ? claim.verification_answers.map(({ question, answer }) => [
+              question,
+              answer,
+            ])
           : [['Jawaban verifikasi', claim.challange_answer || '-']],
         evidence: claim.has_evidence ? 'Bukti terlampir' : null,
       }));
       setClaims(values);
-      setSelectedClaim((current) => values.find((claim) => claim.id === current?.id) || values[0] || null);
+      setSelectedClaim(
+        (current) =>
+          values.find((claim) => claim.id === current?.id) || values[0] || null,
+      );
       setError('');
     } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Klaim tidak dapat dimuat.');
+      setError(
+        requestError.response?.data?.message || 'Klaim tidak dapat dimuat.',
+      );
     }
   }
 
-  useEffect(() => { loadClaims(); }, []);
+  useEffect(() => {
+    loadClaims();
+  }, []);
 
   const filteredClaims = useMemo(
     () => claims.filter((claim) => claim.status === activeTab),
@@ -259,7 +319,11 @@ export function ReviewClaimsPage() {
             role="tabpanel"
             aria-labelledby={`review-tab-${activeTab}`}
           >
-            {error ? <p className="admin-empty-note" role="alert">{error}</p> : filteredClaims.length ? (
+            {error ? (
+              <p className="admin-empty-note" role="alert">
+                {error}
+              </p>
+            ) : filteredClaims.length ? (
               filteredClaims.map((claim) => (
                 <ClaimListCard
                   key={claim.id}
@@ -282,13 +346,21 @@ export function ReviewClaimsPage() {
             claim={selectedClaim}
             onBack={() => setMobileDetailOpen(false)}
             onAction={async (action) => {
-              const status = action === 'Persetujuan klaim' ? 'verified' : 'rejected';
+              const status =
+                action === 'Persetujuan klaim' ? 'verified' : 'rejected';
               try {
                 await processAdminClaim(selectedClaim.id, status);
-                notify(`Klaim berhasil ${status === 'verified' ? 'disetujui' : 'ditolak'}.`, 'success');
+                notify(
+                  `Klaim berhasil ${status === 'verified' ? 'disetujui' : 'ditolak'}.`,
+                  'success',
+                );
                 await loadClaims();
               } catch (requestError) {
-                notify(requestError.response?.data?.message || 'Keputusan klaim gagal disimpan.', 'error');
+                notify(
+                  requestError.response?.data?.message ||
+                    'Keputusan klaim gagal disimpan.',
+                  'error',
+                );
               }
             }}
           />

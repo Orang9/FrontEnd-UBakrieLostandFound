@@ -6,20 +6,35 @@ import { ReviewClaimsPage } from '../../src/features/claim/pages/ReviewClaimsPag
 
 vi.mock('../../src/features/admin/api/adminApi.js', () => ({
   getAdminClaims: vi.fn(),
+  getClaimEvidence: vi.fn(),
   processAdminClaim: vi.fn(),
 }));
 
-import { getAdminClaims } from '../../src/features/admin/api/adminApi.js';
+import {
+  getAdminClaims,
+  getClaimEvidence,
+} from '../../src/features/admin/api/adminApi.js';
 
 beforeEach(() => {
+  Object.defineProperty(URL, 'createObjectURL', {
+    configurable: true,
+    value: vi.fn(() => 'blob:claim-evidence'),
+  });
+  Object.defineProperty(URL, 'revokeObjectURL', {
+    configurable: true,
+    value: vi.fn(),
+  });
   getAdminClaims.mockResolvedValue({
     data: [
       {
         claim_id: 41,
         item_name: 'Tas ransel',
+        image_path: 'public/uploads/tas.jpg',
         claimer_name: 'Mahasiswa',
         is_sensitive: 0,
         status: 'pending',
+        has_evidence: true,
+        evidence_url: '/api/claims/41/evidence',
         verification_answers: [
           {
             question: 'Apa ciri khusus tas ini?',
@@ -29,6 +44,9 @@ beforeEach(() => {
       },
     ],
   });
+  getClaimEvidence.mockResolvedValue(
+    new Blob(['image'], { type: 'image/png' }),
+  );
 });
 
 afterEach(() => {
@@ -46,7 +64,18 @@ describe('ReviewClaimsPage', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText(/Apa ciri khusus tas ini\?/)).toBeInTheDocument();
-    expect(screen.getByText('Ada gantungan kunci berbentuk bintang.')).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Apa ciri khusus tas ini\?/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Ada gantungan kunci berbentuk bintang.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: 'Foto Tas ransel' }),
+    ).toHaveAttribute('src', 'http://localhost:5001/uploads/tas.jpg');
+    expect(
+      await screen.findByRole('img', { name: 'Bukti kepemilikan klaim 41' }),
+    ).toHaveAttribute('src', 'blob:claim-evidence');
+    expect(getClaimEvidence).toHaveBeenCalledWith(41);
   });
 });

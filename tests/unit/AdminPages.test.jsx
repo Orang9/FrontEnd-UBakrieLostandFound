@@ -24,13 +24,15 @@ describe('Admin pages', () => {
     expect(
       screen.getByRole('heading', { name: 'Dashboard Monitoring' }),
     ).toBeInTheDocument();
-    expect(screen.getByText('128')).toBeInTheDocument();
+    expect(screen.queryByText('Barang di Pos Satpam')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Batch mingguan yang perlu dipindahkan ke lemari'),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('img', {
         name: 'Grafik batang laporan dan klaim per bulan',
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText('Data contoh')).toBeInTheDocument();
   });
 
   it('requires manual verification before approving sensitive claims', () => {
