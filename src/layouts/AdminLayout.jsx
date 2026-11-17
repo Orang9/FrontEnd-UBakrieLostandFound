@@ -71,9 +71,12 @@ export function AdminLayout() {
     <div className="admin-shell">
       <header className="admin-mobile-header">
         <div className="admin-mobile-brand">
-          <span className="brand-mark" aria-hidden="true">
-            UB
-          </span>
+          <img
+            className="brand-mark"
+            src="/LostandFound.jpeg"
+            alt=""
+            aria-hidden="true"
+          />
           <span>{activeNavigation?.label ?? 'Admin BEM'}</span>
         </div>
         <button
@@ -104,7 +107,12 @@ export function AdminLayout() {
         id="admin-navigation-drawer"
       >
         <Link className="admin-brand" to={paths.catalog} onClick={closeMenu}>
-          <span className="brand-mark" aria-hidden="true">UB</span>
+          <img
+            className="brand-mark"
+            src="/LostandFound.jpeg"
+            alt=""
+            aria-hidden="true"
+          />
           <span>UBakrie Lost &amp; Found</span>
         </Link>
         {renderNavigation('admin-sidebar-nav')}

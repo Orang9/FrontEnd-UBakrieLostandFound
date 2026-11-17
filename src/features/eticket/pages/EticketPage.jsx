@@ -6,6 +6,7 @@ import {
 } from '../api/eticketApi.js';
 import { paths } from '../../../app/router/paths.js';
 import { formatShortDate } from '../../../lib/format.js';
+import { useAuth } from '../../../app/providers/AuthProvider.jsx';
 
 const QR_VALIDITY_MS = 30 * 60 * 1000;
 
@@ -16,8 +17,20 @@ function formatCountdown(milliseconds) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
+function getInitials(name) {
+  const initials = String(name || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join('');
+  return initials || 'P';
+}
+
 export function EticketPage() {
   const { ticketId } = useParams();
+  const { user } = useAuth();
   const [claim, setClaim] = useState(null);
   const [now, setNow] = useState(Date.now());
   const [ticketError, setTicketError] = useState('');
@@ -73,11 +86,11 @@ export function EticketPage() {
       <div className="eticket-content">
         <section className="eticket-profile-card" aria-label="Profil pengguna">
           <div className="eticket-avatar" aria-hidden="true">
-            NF
+            {getInitials(user?.name)}
           </div>
           <div>
-            <h2>Najwa Naela Fawwaz</h2>
-            <p>Mahasiswa - Informatika</p>
+            <h2>{user?.name || 'Pemohon tidak tersedia'}</h2>
+            <p>{user?.role === 'Admin_BEM' ? 'Admin BEM' : 'Mahasiswa'}</p>
           </div>
         </section>
 

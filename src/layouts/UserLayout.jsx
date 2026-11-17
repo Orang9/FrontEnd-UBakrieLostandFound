@@ -66,9 +66,12 @@ export function UserLayout() {
     <div className={appShellClasses}>
       <header className="topbar">
         <Link className="brand" to={paths.home}>
-          <span className="brand-mark" aria-hidden="true">
-            UB
-          </span>
+          <img
+            className="brand-mark"
+            src="/LostandFound.jpeg"
+            alt=""
+            aria-hidden="true"
+          />
           <span>UBakrie Lost &amp; Found</span>
         </Link>
         <nav className="topbar-navigation" aria-label="Navigasi utama">

@@ -50,7 +50,7 @@ function formatScheduleDate(value) {
 function ClaimSummary({ claim, handoverComplete }) {
   const details = [
     ['Barang', claim.item.name],
-    ['Pemohon', 'Najwa Naela Fawwaz'],
+    ['Pemohon', claim.claimant_name || claim.claimer_name || 'Data tidak tersedia'],
     [
       'Kategori',
       `${claim.item.category ?? 'Umum'} (sudah diverifikasi manual)`,
@@ -103,13 +103,20 @@ export function ScannerPage() {
       let result;
       try {
         const response = await validateTicket(rawToken);
-        const data = response?.data ?? response;
+        const data = response?.data?.claim
+          ? response.data
+          : response?.data ?? response;
         const claim = data?.claim ?? data ?? {};
         result = {
           valid: true,
           claim: {
             ...claim,
             id: claim.id ?? claim.claim_id ?? 'validated',
+            claimant_name:
+              claim.claimant_name ??
+              claim.claimer_name ??
+              claim.full_name ??
+              claim.user?.name,
             item: claim.item ?? { name: claim.item_name ?? 'Barang', category: claim.category ?? 'Umum' },
             schedule: claim.schedule ?? { date: claim.scheduled_date ?? '-', time: claim.time ?? '-' },
           },

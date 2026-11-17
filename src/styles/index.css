@@ -89,14 +89,13 @@ a {
 }
 
 .brand-mark {
-  display: inline-grid;
-  width: 36px;
-  height: 36px;
-  place-items: center;
-  border-radius: 10px;
-  background: var(--color-primary);
-  color: white;
-  font-size: 13px;
+  display: inline-block;
+  width: 132px;
+  height: auto;
+  flex: 0 0 auto;
+  padding: 0;
+  border-radius: 8px;
+  object-fit: contain;
 }
 
 .topbar-account {
@@ -434,16 +433,13 @@ a {
 }
 
 .auth-logo-mark {
-  display: grid;
-  width: 68px;
-  height: 68px;
-  place-items: center;
+  display: block;
+  width: min(280px, 100%);
+  height: auto;
+  padding: 0;
   margin-bottom: 14px;
-  border-radius: 50%;
-  background: white;
-  color: var(--color-primary);
-  font-size: 23px;
-  font-weight: 800;
+  border-radius: 8px;
+  object-fit: contain;
 }
 
 .auth-header h1 {
@@ -2938,10 +2934,7 @@ a {
 }
 
 .admin-mobile-header .brand-mark {
-  flex: 0 0 36px;
-  border-radius: 50%;
-  background: white;
-  color: var(--color-primary);
+  width: 92px;
 }
 
 .admin-sidebar .admin-sidebar-nav {
@@ -2963,10 +2956,7 @@ a {
 }
 
 .admin-brand .brand-mark {
-  flex: 0 0 36px;
-  border-radius: 50%;
-  background: white;
-  color: var(--color-primary);
+  width: 132px;
 }
 
 .admin-nav-link {
@@ -4604,9 +4594,7 @@ a {
   }
 
   .brand-mark {
-    border-radius: 50%;
-    background: white;
-    color: var(--color-primary);
+    width: 132px;
   }
 
   .topbar-navigation {
@@ -5145,7 +5133,7 @@ a {
   }
 
   .auth-logo-mark {
-    width: 80px;
+    width: min(280px, 100%);
     height: 80px;
   }
 
@@ -5194,8 +5182,7 @@ a {
   }
 
   .auth-logo-mark {
-    width: 62px;
-    height: 62px;
+    width: min(220px, 100%);
     margin-bottom: 12px;
   }
 
@@ -6141,9 +6128,7 @@ a {
 }
 
 .app-shell.is-home .brand-mark {
-  border-radius: 50%;
-  background: white;
-  color: var(--color-primary);
+  width: 132px;
 }
 
 .app-shell.is-home .topbar-navigation {
